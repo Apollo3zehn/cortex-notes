@@ -1,5 +1,6 @@
-import { ExtensionContext, Range, TextEditor, Uri, commands, window, workspace } from 'vscode';
+import { ExtensionContext, Range, RelativePattern, TextEditor, Uri, commands, window, workspace } from 'vscode';
 import { posix } from 'path';
+import { getExcludePatterns } from './settings';
 
 const logger = window.createOutputChannel('Cortex Notes');
 
@@ -106,7 +107,13 @@ function initializeDecorations(context: ExtensionContext, cortex: Map<string, Pa
 
 async function buildCortex(): Promise<Map<string, Page>> {
     
-    const fileUris = await workspace.findFiles("**/*.md");
+    const excludePatterns = getExcludePatterns();
+
+    const fileUris = await workspace.findFiles(
+        "**/*.md",
+        `{${excludePatterns.join(',')}}`
+    );
+
     const cortex = new Map<string, Page>();
     const wikilinkRegex = /\[{2}(.*?)\]{2}/gmd;
     const hashTagsRegex = /(?:^|\s)#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/gmud;

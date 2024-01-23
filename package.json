@@ -19,7 +19,21 @@
         "command": "cortex-notes.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Cortex Notes",
+      "properties": {
+        "cortex-notes.exclude-patterns": {
+          "type": [
+            "array"
+          ],
+          "default": [
+            "**/.vscode/**/*"
+          ],
+          "description": "Specifies exclude patterns."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
