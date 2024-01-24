@@ -1,8 +1,8 @@
 import { ExtensionContext, commands, window, workspace } from 'vscode';
-import { activate as activateCompletions } from './features/completions';
+import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateDecorations } from './features/decorations';
 import { logger } from './global';
-import { buildCortex } from './cortex';
+import { buildCortex, deleteCortexPage } from './cortex';
 
 export async function activate(context: ExtensionContext) {
 
@@ -23,6 +23,13 @@ export async function activate(context: ExtensionContext) {
 
     activateDecorations(context, cortex);
     activateCompletions(context, cortex);
+
+    // update on delete
+    const watcher = workspace.createFileSystemWatcher('**/*');
+
+    watcher.onDidDelete(uri => deleteCortexPage(cortex, uri),
+        null,
+        context.subscriptions);
 }
 
 export function deactivate() {}

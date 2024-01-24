@@ -1,0 +1,6 @@
+- add license
+- do not update cortex on every key stroke to not overload the system (throttle but do not miss important changes)
+- files copied/deleted from outside vscode are not detected
+- what happens on rename?
+- loglevel
+- when typing [[abc]] there will be many pages: a, b, and c

@@ -1,13 +1,21 @@
-import { ExtensionContext, Range, TextEditor, window } from "vscode";
+import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
 import { Page, logger } from "../global";
-import { linkDecorationType } from "../decorations";
+import { linkDecorationType } from "../decorationTypes";
+import { isSupportedFile } from "../utils";
+import { updateCortexPage } from "../cortex";
 
-export async function activate(context: ExtensionContext, cortex: Map<string, Page>) {
+export async function activate(
+    context: ExtensionContext,
+    cortex: Map<string, Page>) {
 
     // define update decorations method for links
-    const updateLinkDecorations = (editor: TextEditor) => {
+    const updateLinkDecorations = (editor: TextEditor | undefined) => {
   
-        logger.appendLine(`Update decorations for document ${editor.document.uri}`);
+        if (!(editor && isSupportedFile(editor.document))) {
+            return;
+        }
+
+        logger.appendLine(`Update decorations for ${editor.document.uri}`);
 
         const ranges: Range[] = [];
         const documentUriAsString = editor.document.uri.toString();
@@ -41,8 +49,31 @@ export async function activate(context: ExtensionContext, cortex: Map<string, Pa
 
         updateLinkDecorations(editor);
       },
-      // TODO: reason for these options?
       null,
       context.subscriptions
     );
+
+    // set decorations when document has changed
+    workspace.onDidChangeTextDocument(e => {
+  
+        if (!isSupportedFile(e.document)) {
+            return;
+        };
+
+        const editor = window.visibleTextEditors.find(
+            current => current.document === e.document
+        );
+
+        if (!editor) {
+            return;
+        };
+
+        updateCortexPage(cortex, e.document);
+        updateLinkDecorations(editor);
+      },
+      null,
+      context.subscriptions
+    );
+
+    updateLinkDecorations(window.activeTextEditor);
 }

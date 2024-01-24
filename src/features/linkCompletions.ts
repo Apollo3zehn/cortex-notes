@@ -1,6 +1,7 @@
-import { CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, CompletionItemProvider, CompletionList, ExtensionContext, Position, ProviderResult, TextDocument, languages } from "vscode";
+import { CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, CompletionItemProvider, CompletionList, ExtensionContext, Position, ProviderResult, TextDocument, commands, languages, window } from "vscode";
 import { Page, documentSelector } from "../global";
 
+const JUMP_CURSOR_WIKILINK_COMMAND = "cortex-notes.completion-jump-cursor-wikilink";
 const _wikilinkRegex = /(?:^|[^\[])\[{2}/;
 
 abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<CompletionItem>
@@ -30,8 +31,14 @@ abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<
             .map(page => page.pageName)
             .sort()
             .map(pageName => {
+
                 const item = new CompletionItem(pageName, CompletionItemKind.Reference);
                 item.insertText = this.mapPageName(pageName);
+
+                item.command = {
+                    command: 'cortex-notes.completion-jump-cursor-wikilink',
+                    title: ''
+                };
 
                 return item;
             });
@@ -74,4 +81,16 @@ export function activate(context: ExtensionContext, cortex: Map<string, Page>)
 
     // register disposal
     context.subscriptions.push(wikilinkRegistration, hashTagRegistration);
+
+    // register JUMP_CURSOR_WIKILINK_COMMAND command
+    commands.registerCommand(
+        JUMP_CURSOR_WIKILINK_COMMAND,
+        async () => {
+            await commands.executeCommand('cursorMove', {
+                to: 'right',
+                by: 'character',
+                value: 2
+            });
+        }
+    );
 }

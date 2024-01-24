@@ -16,8 +16,9 @@
   "contributes": {
     "commands": [
       {
-        "command": "cortex-notes.helloWorld",
-        "title": "Hello World"
+        "command": "cortex-notes.completion-jump-cursor-wikilink",
+        "title": "",
+        "enablement": "false"
       }
     ],
     "configuration": {

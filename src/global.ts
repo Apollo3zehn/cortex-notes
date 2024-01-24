@@ -3,7 +3,7 @@ import { Range, Uri, window } from "vscode";
 export const logger = window.createOutputChannel('Cortex Notes');
 
 export const documentSelector = [
-    { scheme: 'file', language: 'markdown' }
+    { language: 'markdown', scheme: 'file' }
 ];
 
 export class Page {
