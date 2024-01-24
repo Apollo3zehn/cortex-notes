@@ -13,7 +13,7 @@ export async function buildCortex(): Promise<Map<string, Page>> {
     );
 
     const cortex = new Map<string, Page>();
-    const wikilinkRegex = /\[{2}(.*?)\]{2}/gmd;
+    const wikilinkRegex = /\[{2}([^\[]+)\]{2}/gmd;
     const hashTagsRegex = /(?:^|\s)#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/gmud;
     const tasks: Promise<void>[] = [];
 

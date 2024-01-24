@@ -1,7 +1,7 @@
 import { CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, CompletionItemProvider, CompletionList, ExtensionContext, Position, ProviderResult, TextDocument, languages } from "vscode";
 import { Page, documentSelector } from "../global";
 
-const _wikilinkRegex = /\[\[[^[\]]*(?!.*\]\])/;
+const _wikilinkRegex = /(?:^|[^\[])\[{2}/;
 
 abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<CompletionItem>
 {
@@ -21,10 +21,7 @@ abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<
             .lineAt(position)
             .text.substring(0, position.character);
       
-        const enableWikilinkCompletion = cursorPrefix.match(_wikilinkRegex);
-        
-        // TODO this way hashtag completion is not working
-        if (!enableWikilinkCompletion) {
+        if (!(cursorPrefix.slice(-1) === '#' || cursorPrefix.match(_wikilinkRegex))) {
             return null;
         }
         
@@ -44,7 +41,7 @@ abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<
 class WikilinkCompletionItemProvider extends LinkCompletionItemProviderBase
 {
     mapPageName(pageName: string): string {
-        return `[${pageName}]`;
+        return `${pageName}`;
     }
 }
 
