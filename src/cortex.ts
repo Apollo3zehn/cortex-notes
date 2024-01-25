@@ -1,5 +1,5 @@
 import { posix } from "path";
-import { workspace, Range, Uri, TextDocumentChangeEvent, TextDocumentChangeReason, TextDocument } from "vscode";
+import { workspace, Range, Uri, TextDocument } from "vscode";
 import { Page, logger, PageLink, LinkType } from "./global";
 import { getExcludePatterns } from "./settings";
 
@@ -43,31 +43,47 @@ export function updateCortexPage(cortex: Map<string, Page>, document: TextDocume
     logger.appendLine(`Update page ${pageName}`);
 
     let page = getOrCreatePage(cortex, pageName, document.uri);
+    const clonedLinks = [...page.links];
 
-    // clear links
-    page.links.length = 0;
+    // clear links of source page and backlinks of target page
+    const processedTargetPages = new Set<Page>();
 
-    // clear backlinks
-    for (const backlink of page.backlinks) {
-        const linksOfTarget = backlink.target.links;
-        const linksToKeep = linksOfTarget.filter(current => current.source !== page);
+    for (const link of page.links) {
 
-        linksOfTarget.length = 0;
-        linksOfTarget.push(...linksToKeep);
+        const targetPage = link.target;
+
+        if (processedTargetPages.has(targetPage)) {
+            continue;
+        }
+
+        const targetPageBacklinks = targetPage.backlinks;
+        const linksToKeep = targetPageBacklinks.filter(current => current.source !== page);
+
+        targetPageBacklinks.length = 0;
+        targetPageBacklinks.push(...linksToKeep);
+
+        processedTargetPages.add(targetPage);
     }
 
-    page.backlinks.length = 0;
+    page.links.length = 0;
 
     // analyze cortex file
     analyzeCortexFile(cortex, document);
+
+    // delete orphaned pages
+    for (const link of clonedLinks) {
+
+        const targetPage = link.target;
+
+        if (!targetPage.uri && targetPage.backlinks.length === 0) {
+            deleteCortexPage(cortex, targetPage);
+        }
+    }
 }
 
-export function deleteCortexPage(cortex: Map<string, Page>, uri: Uri) {
+export function deleteCortexPage(cortex: Map<string, Page>, page: Page) {
 
-    let pageName = getPageName(uri);
-    logger.appendLine(`Delete page ${pageName}`);
-
-    let page = getOrCreatePage(cortex, pageName, uri);
+    logger.appendLine(`Delete page ${page.name}`);
 
     // clear backlinks
     for (const backlink of page.backlinks) {
@@ -79,7 +95,15 @@ export function deleteCortexPage(cortex: Map<string, Page>, uri: Uri) {
     }
 
     // delete page
-    cortex.delete(pageName);
+    cortex.delete(page.name);
+}
+
+export function deleteCortexPageByUri(cortex: Map<string, Page>, uri: Uri) {
+
+    let pageName = getPageName(uri);
+    let page = getOrCreatePage(cortex, pageName, undefined);
+
+    deleteCortexPage(cortex, page);
 }
 
 function analyzeCortexFile(

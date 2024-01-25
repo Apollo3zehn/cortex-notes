@@ -14,13 +14,6 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "cortex-notes.completion-jump-cursor-wikilink",
-        "title": "",
-        "enablement": "false"
-      }
-    ],
     "configuration": {
       "title": "Cortex Notes",
       "properties": {
@@ -29,7 +22,7 @@
             "array"
           ],
           "default": [
-            "**/.vscode/**/*"
+            ".vscode"
           ],
           "description": "Specifies exclude patterns."
         }

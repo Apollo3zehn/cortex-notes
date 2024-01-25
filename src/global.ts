@@ -8,7 +8,7 @@ export const documentSelector = [
 
 export class Page {
     constructor(
-        public readonly pageName: string,
+        public readonly name: string,
         public uri: Uri | undefined,
         public uriAsString: string | undefined,
         public readonly links: PageLink[],

@@ -3,4 +3,4 @@
 - files copied/deleted from outside vscode are not detected
 - what happens on rename?
 - loglevel
-- when typing [[abc]] there will be many pages: a, b, and c
+- does package.json default exclude pattern work? what if user creates file in excluded folder? should be filtered

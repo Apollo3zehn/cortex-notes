@@ -28,7 +28,7 @@ abstract class LinkCompletionItemProviderBase implements CompletionItemProvider<
         
         return Array
             .from(this.cortex.values())
-            .map(page => page.pageName)
+            .map(page => page.name)
             .sort()
             .map(pageName => {
 
