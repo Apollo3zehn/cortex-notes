@@ -4,3 +4,7 @@
 - what happens on rename?
 - loglevel
 - does package.json default exclude pattern work? what if user creates file in excluded folder? should be filtered
+- org / plaintext files?
+- use own icon
+- does this make sens or can it be simplified? _cortex.get(getPageName(uri));
+- casing ([[Nexus]] vs [[nexus]])

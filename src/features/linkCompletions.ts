@@ -1,5 +1,5 @@
 import { CancellationToken, CompletionContext, CompletionItem, CompletionItemKind, CompletionItemProvider, CompletionList, ExtensionContext, Position, ProviderResult, TextDocument, commands, languages, window } from "vscode";
-import { Page, documentSelector } from "../global";
+import { Page, documentSelector } from "../core";
 
 const JUMP_CURSOR_WIKILINK_COMMAND = "cortex-notes.completion-jump-cursor-wikilink";
 const _wikilinkRegex = /(?:^|[^\[])\[{2}/;

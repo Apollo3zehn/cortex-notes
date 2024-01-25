@@ -1,5 +1,5 @@
 import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
-import { Page, logger } from "../global";
+import { Page, logger } from "../core";
 import { linkDecorationType } from "../decorationTypes";
 import { isSupportedFile } from "../utils";
 import { updateCortexPage } from "../cortex";

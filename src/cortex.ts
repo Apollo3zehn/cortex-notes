@@ -1,7 +1,8 @@
 import { posix } from "path";
 import { workspace, Range, Uri, TextDocument } from "vscode";
-import { Page, logger, PageLink, LinkType } from "./global";
+import { Page, logger, PageLink, LinkType } from "./core";
 import { getExcludePatterns } from "./settings";
+import { getPageName } from "./utils";
 
 const _wikilinkRegex = /\[{2}([^\[]+)\]{2}/dg;
 const _hashTagsRegex = /(?:^|\s)#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
@@ -166,26 +167,6 @@ function analyzeCortexFile(
         sourcePage.links.push(pageLink);
         targetPage.backlinks.push(pageLink);
     }
-}
-
-function getPageName(uri: Uri): string {
-    return changeExtension(posix.basename(uri.fsPath), '*', '');
-}
-
-// TODO replace by own implementation (credits go to Foam)
-function changeExtension(
-    path: string,
-    from: string,
-    next: string
-): string {
-    const current = posix.extname(path);
-
-    if ((from === '*' && current !== next) || current === from) {
-        path = path.substring(0, path.length - current.length);
-        return next ? path + next : path;
-    }
-
-    return path;
 }
 
 function getOrCreatePage(

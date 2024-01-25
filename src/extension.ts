@@ -2,7 +2,7 @@ import { ExtensionContext, ViewColumn, commands, window, workspace } from 'vscod
 import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateDecorations } from './features/decorations';
 import { activate as activatePeekBacklinks } from './features/peekBacklinks';
-import { logger } from './global';
+import { logger } from './core';
 import { buildCortex, deleteCortexPageByUri } from './cortex';
 
 export async function activate(context: ExtensionContext) {
