@@ -1,6 +1,7 @@
-import { ExtensionContext, commands, window, workspace } from 'vscode';
+import { ExtensionContext, ViewColumn, commands, window, workspace } from 'vscode';
 import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateDecorations } from './features/decorations';
+import { activate as activatePeekBacklinks } from './features/peekBacklinks';
 import { logger } from './global';
 import { buildCortex, deleteCortexPageByUri } from './cortex';
 
@@ -13,16 +14,11 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
-    let disposable = commands.registerCommand('cortex-notes.helloWorld', () => {
-        window.showInformationMessage('Hello World from cortex-notes!');
-    });
-
-    context.subscriptions.push(disposable);
-
     const cortex = await buildCortex();
 
     activateDecorations(context, cortex);
     activateCompletions(context, cortex);
+    activatePeekBacklinks(context, cortex);
 
     // update on delete
     const watcher = workspace.createFileSystemWatcher('**/*');

@@ -64,23 +64,20 @@ export function activate(context: ExtensionContext, cortex: Map<string, Page>)
     // wikilink
     const wikilinkProvider = new WikilinkCompletionItemProvider(cortex);
 
-    const wikilinkRegistration = languages.registerCompletionItemProvider(
-        documentSelector,
-        wikilinkProvider,
-        '['
-    );
+    context.subscriptions.push(
+        languages.registerCompletionItemProvider(
+            documentSelector,
+            wikilinkProvider,
+            '['));
 
     // hashtag
     const hashTagProvider = new HashTagCompletionItemProvider(cortex);
 
-    const hashTagRegistration = languages.registerCompletionItemProvider(
-        documentSelector,
-        hashTagProvider,
-        '#'
-    );
-
-    // register disposal
-    context.subscriptions.push(wikilinkRegistration, hashTagRegistration);
+    context.subscriptions.push(
+        languages.registerCompletionItemProvider(
+            documentSelector,
+            hashTagProvider,
+            '#'));
 
     // register JUMP_CURSOR_WIKILINK_COMMAND command
     commands.registerCommand(

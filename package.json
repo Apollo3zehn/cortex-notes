@@ -27,6 +27,24 @@
           "description": "Specifies exclude patterns."
         }
       }
+    },
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "cortex-notes-backlinks-container",
+          "title": "Backlinks",
+          "icon": "resources/backlinks.svg"
+        }
+      ]
+    },
+    "views": {
+      "cortex-notes-backlinks-container": [
+        {
+          "type": "webview",
+          "id": "cortex-notes.peek-backlinks",
+          "name": "Peek backlinks"
+        }
+      ]
     }
   },
   "scripts": {
