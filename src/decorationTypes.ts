@@ -1,10 +1,13 @@
 import { window } from "vscode";
 
 export const linkDecorationType = window.createTextEditorDecorationType({
-    light: {
-      backgroundColor: '#02adc422',
-    },
-    dark: {
-      backgroundColor: '#02adc422',
-    }
+    color: "#2aa198",
+    fontWeight: "bold"
+    // no so useful in solarized style:
+    // light: {
+    //   backgroundColor: '#02adc422',
+    // },
+    // dark: {
+    //   backgroundColor: '#02adc422',
+    // }
 });

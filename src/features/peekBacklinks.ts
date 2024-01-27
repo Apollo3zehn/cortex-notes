@@ -2,7 +2,7 @@
 
 import { CancellationToken, Disposable, ExtensionContext, TextDocument, TextEditor, Uri, WebviewView, WebviewViewProvider, WebviewViewResolveContext, commands, window, workspace } from "vscode";
 import { Page, PageLink } from "../core";
-import { getPageName, isSupportedFile } from "../utils";
+import { getOpenFileCommandUri, getPageName, isSupportedFile } from "../utils";
 
 export function activate(context: ExtensionContext, cortex: Map<string, Page>)
 {
@@ -97,14 +97,23 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
                             pointer-events: none;
                         }
 
+                        a {
+                            text-decoration: none;
+                        }
+
                         .source-page-title a {
-                            color: #2aa198
+                            color: #2aa198;
                         }
 
                         .source-page-title-row {
                             background-color: #00000033;
                             display: block;
                             padding: 0.3em;
+                        }
+
+                        .page-link a {
+                            color: #2aa198;
+                            font-weight: bold;
                         }
                     </style>
                 </head>
@@ -194,11 +203,9 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
 
                 linkedDocDetailsMap.set(document, linkedPageDetails);
                
-                const stageCommandUri = Uri.parse(
-                    `command:vscode.open?${encodeURIComponent(JSON.stringify(sourcePageUri))}`
-                );
+                const openFileCommandUri = getOpenFileCommandUri(sourcePageUri);
 
-                responseLines.push(`<span class="source-page-title-row">**<span class="source-page-title">[${title}](${stageCommandUri})</span> ${relativeUri.substring(0, relativeUri.length - title.length - 3)}**</span>`);
+                responseLines.push(`<span class="source-page-title-row">**<span class="source-page-title">[${title}](${openFileCommandUri})</span> ${relativeUri.substring(0, relativeUri.length - title.length - 3)}**</span>`);
                 responseLines.push('');
 
                 currentLine += 2;
@@ -212,21 +219,24 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
                 // append wiki doc content to the text response
                 const backlinkLine = backlink.range.start.line;
 
-                currentLine += PeekBacklinksViewProvider.appendLeading(
+                currentLine += this.appendLeading(
+                    sourcePage,
                     document,
                     backlinkLine,
                     linkedPageDetails,
                     responseLines
                 );
 
-                currentLine += PeekBacklinksViewProvider.appendMatch(
+                currentLine += this.appendMatch(
+                    sourcePage,
                     document,
                     backlinkLine,
                     linkedPageDetails,
                     responseLines
                 );
 
-                currentLine += PeekBacklinksViewProvider.appendTrailing(
+                currentLine += this.appendTrailing(
+                    sourcePage,
                     document,
                     backlinkLine,
                     linkedPageDetails,
@@ -241,7 +251,10 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
             responseLines.push('There are no backlinks to peek.');
         }
 
-        return responseLines.join('\n');
+        // format page links
+        const response = responseLines.join('\n');
+
+        return response;
     }
 
     // helper methods
@@ -257,24 +270,25 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         return this._pageToLinkedPageDetailsMap.get(currentPageUri)!;
     }
 
-    private static appendLeading(
-        doc: TextDocument,
+    private appendLeading(
+        sourcePage: Page,
+        sourceDdocument: TextDocument,
         backlinkLine: number,
-        linkDocDetails: LinkedPageDetails,
+        linkedPageDetails: LinkedPageDetails,
         responseLines: string[]
     ): number {
         
-        const minLine = linkDocDetails.minLine;
+        const minLine = linkedPageDetails.minLine;
         let fromRequested: number;
         
-        if (doc.lineAt(backlinkLine).text.startsWith("-")) {
+        if (sourceDdocument.lineAt(backlinkLine).text.startsWith("-")) {
             return 0;
         }
 
         fromRequested = 0;
             
         for (let i = backlinkLine - 1; i >= 0; i--) {
-            if (doc.lineAt(i).text.startsWith("-")) {
+            if (sourceDdocument.lineAt(i).text.startsWith("-")) {
                 fromRequested = i;
                 break;
             }
@@ -290,47 +304,52 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         }
 
         for (let i = from; i < to; i++) {
-            const text = doc.lineAt(i).text;
+            let text = sourceDdocument.lineAt(i).text;
+            text = this.formatPageLinks(sourcePage, text, i);
 
             responseLines.push(text);
             lineCount++;
-            linkDocDetails.minLine = i + 1;
+            linkedPageDetails.minLine = i + 1;
         }
 
         return lineCount;
     }
 
-    private static appendMatch(
-        doc: TextDocument,
+    private appendMatch(
+        sourcePage: Page,
+        sourceDocument: TextDocument,
         backlinkLine: number,
-        linkDocDetails: LinkedPageDetails,
+        linkedPageDetails: LinkedPageDetails,
         responseLines: string[]
     ) {
-        if (backlinkLine < linkDocDetails.minLine) {
+        if (backlinkLine < linkedPageDetails.minLine) {
             return 0;
         }
 
-        const text = doc.lineAt(backlinkLine).text;
+        let text = sourceDocument.lineAt(backlinkLine).text;
+        text = this.formatPageLinks(sourcePage, text, backlinkLine);
+
         responseLines.push(text);
-        linkDocDetails.minLine = backlinkLine + 1;
+        linkedPageDetails.minLine = backlinkLine + 1;
 
         return 1;
     }
 
-    private static appendTrailing(
-        doc: TextDocument,
+    private appendTrailing(
+        sourcePage: Page,
+        sourceDocument: TextDocument,
         backlinkLine: number,
-        linkDocDetails: LinkedPageDetails,
+        linkedPageDetails: LinkedPageDetails,
         responseLines: string[]
     ): number {
-        const minLine = linkDocDetails.minLine;
+        const minLine = linkedPageDetails.minLine;
         const from = Math.max(minLine, backlinkLine);
         let to: number;
 
-        to = doc.lineCount;
+        to = sourceDocument.lineCount;
         
-        for (let i = backlinkLine + 1; i < doc.lineCount; i++) {
-            if (doc.lineAt(i).text.startsWith("-")) {
+        for (let i = backlinkLine + 1; i < sourceDocument.lineCount; i++) {
+            if (sourceDocument.lineAt(i).text.startsWith("-")) {
                 to = i - 1;
                 break;
             };
@@ -339,13 +358,41 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         let lineCount = 0;
 
         for (let i = from; i < to; i++) {
-            const text = doc.lineAt(i).text;
+            let text = sourceDocument.lineAt(i).text;
+            text = this.formatPageLinks(sourcePage, text, i);
 
             responseLines.push(text);
             lineCount++;
-            linkDocDetails.minLine = i + 1;
+            linkedPageDetails.minLine = i + 1;
         }
 
         return lineCount;
+    }
+
+    private formatPageLinks(
+        page: Page,
+        text: string,
+        line: number): string {
+        
+        let result = text;
+        let offset = 0;
+        
+        for (const link of page.links) {
+
+            if (link.target.uri && link.range.start.line === line) {
+
+                const prefix = result.substring(0, link.range.start.character + offset);
+                const content = result.substring(link.range.start.character + offset, link.range.end.character + offset);
+                const suffix = result.substring(link.range.end.character + offset);
+                const openFileCommandUri = getOpenFileCommandUri(link.target.uri);
+
+                const previousResultLength = result.length;
+                result = `${prefix}<span class="page-link">[${content}](${openFileCommandUri})</span>${suffix}`;
+
+                offset += result.length - previousResultLength;
+            }
+        }
+
+        return result;
     }
 }

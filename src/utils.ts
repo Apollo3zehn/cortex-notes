@@ -35,3 +35,9 @@ export function isSupportedFile(document: TextDocument): boolean {
 
     return true;
 }
+
+export function getOpenFileCommandUri(uri: Uri): Uri {
+    return Uri.parse(
+        `command:vscode.open?${encodeURIComponent(JSON.stringify(uri))}`
+    );
+}
