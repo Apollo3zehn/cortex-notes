@@ -42,6 +42,11 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         _token: CancellationToken): void | Thenable<void> {
 
         webviewView.webview.html = this._defaultMessage;
+
+        webviewView.webview.options = {
+            enableCommandUris: true
+        };
+
         this._webviewView = webviewView;
 
         // update document now
@@ -66,9 +71,48 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         // capture the current wiki document for later use
         // https://github.com/microsoft/vscode/issues/75612
         const markdownString = await this.buildMarkdown(editor.document.uri);
-        const html = await commands.executeCommand<string>('markdown.api.render', markdownString);
+        const body = await commands.executeCommand<string>('markdown.api.render', markdownString);
         
-        this._webviewView.webview.html = html;
+        this._webviewView.webview.html = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        body {
+                            color: #839496;
+                            font-size: 1em;
+                        }
+
+                        body::before {
+                            content: "";
+                            background-image: url("https://svgsilh.com/svg/155655.svg");
+                            background-size: cover;
+                            position: absolute;
+                            top: 0px;
+                            right: 0px;
+                            bottom: 0px;
+                            left: 0px;
+                            opacity: 0.04;
+                            pointer-events: none;
+                        }
+
+                        .source-page-title a {
+                            color: #2aa198
+                        }
+
+                        .source-page-title-row {
+                            background-color: #00000033;
+                            display: block;
+                            padding: 0.3em;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${body}
+                </body>
+            </html>
+        `;
     }
 
     private async buildMarkdown(uri: Uri): Promise<string> {
@@ -119,9 +163,9 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
 
             // get or create 'linkedPageDetails'
             let linkedPageDetails: LinkedPageDetails;
-            let sourcePage = backlinksGroup[0];
-
-            const document = await workspace.openTextDocument(sourcePage.uri!);
+            const sourcePage = backlinksGroup[0];
+            const sourcePageUri = sourcePage.uri!;
+            const document = await workspace.openTextDocument(sourcePageUri);
 
             if (linkedDocDetailsMap.has(document)) {
 
@@ -130,11 +174,11 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
             } else {
 
                 // append backlink source's URI to the text response
-                // const workspaceFolder = workspace
-                //     .getWorkspaceFolder(toVsCodeUri(sourcePage))?.uri.path;
-
-                const title = "# title here"; // this.workspace.get(sourcePage).title;
-                const relativeUri = "uri here";  // sourcePage.path.replace(workspaceFolder, '');
+                const workspaceFolderUri = workspace
+                    .getWorkspaceFolder(sourcePageUri)?.uri!;
+               
+                const title = sourcePage.name;
+                const relativeUri = sourcePageUri.path.replace(workspaceFolderUri.path, '');
 
                 if (responseLines.length > 0) {
                     responseLines.push('');
@@ -149,7 +193,12 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
                 };
 
                 linkedDocDetailsMap.set(document, linkedPageDetails);
-                responseLines.push(`${title} (${relativeUri})`);
+               
+                const stageCommandUri = Uri.parse(
+                    `command:vscode.open?${encodeURIComponent(JSON.stringify(sourcePageUri))}`
+                );
+
+                responseLines.push(`<span class="source-page-title-row">**<span class="source-page-title">[${title}](${stageCommandUri})</span> ${relativeUri.substring(0, relativeUri.length - title.length - 3)}**</span>`);
                 responseLines.push('');
 
                 currentLine += 2;
@@ -164,24 +213,24 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
                 const backlinkLine = backlink.range.start.line;
 
                 currentLine += PeekBacklinksViewProvider.appendLeading(
-                document,
-                backlinkLine,
-                linkedPageDetails,
-                responseLines
+                    document,
+                    backlinkLine,
+                    linkedPageDetails,
+                    responseLines
                 );
 
                 currentLine += PeekBacklinksViewProvider.appendMatch(
-                document,
-                backlinkLine,
-                linkedPageDetails,
-                responseLines
+                    document,
+                    backlinkLine,
+                    linkedPageDetails,
+                    responseLines
                 );
 
                 currentLine += PeekBacklinksViewProvider.appendTrailing(
-                document,
-                backlinkLine,
-                linkedPageDetails,
-                responseLines
+                    document,
+                    backlinkLine,
+                    linkedPageDetails,
+                    responseLines
                 );
 
                 linkedPageDetails.endLine = currentLine;

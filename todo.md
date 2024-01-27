@@ -8,3 +8,4 @@
 - use own icon
 - does this make sens or can it be simplified? _cortex.get(getPageName(uri));
 - casing ([[Nexus]] vs [[nexus]])
+- replace https://svgsilh.com/svg/155655.svg peek backlinks background image
