@@ -111,7 +111,14 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
                             padding: 0.3em;
                         }
 
-                        .page-link a {
+                        .page-link-indicator {
+                            color: #004354;
+                            font-weight: bold;
+                            font-size: 1.2em;
+                            letter-spacing: 0.1em;
+                        }
+
+                        .page-link-name a {
                             color: #2aa198;
                             font-weight: bold;
                         }
@@ -382,12 +389,12 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
             if (link.target.uri && link.range.start.line === line) {
 
                 const prefix = result.substring(0, link.range.start.character + offset);
-                const content = result.substring(link.range.start.character + offset, link.range.end.character + offset);
+                const pageName = result.substring(link.range.start.character + offset + 2, link.range.end.character + offset - 2);
                 const suffix = result.substring(link.range.end.character + offset);
                 const openFileCommandUri = getOpenFileCommandUri(link.target.uri);
 
                 const previousResultLength = result.length;
-                result = `${prefix}<span class="page-link">[${content}](${openFileCommandUri})</span>${suffix}`;
+                result = `${prefix}<span class="page-link-indicator">[[</span><span class="page-link-name">[${pageName}](${openFileCommandUri})</span><span class="page-link-indicator">]]</span>${suffix}`;
 
                 offset += result.length - previousResultLength;
             }

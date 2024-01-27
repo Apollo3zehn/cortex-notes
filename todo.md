@@ -10,3 +10,5 @@
 - casing ([[Nexus]] vs [[nexus]])
 - replace https://svgsilh.com/svg/155655.svg peek backlinks background image
 - how to handle non-existing pages in peek backlinks view?
+- peek backlinks: Hashtags are not being rendered properly due to wikilink optimization
+- remove hashtag support?? there will be a problem with allowed characters
