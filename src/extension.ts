@@ -1,5 +1,6 @@
-import { ExtensionContext, ViewColumn, commands, window, workspace } from 'vscode';
+import { ExtensionContext, workspace } from 'vscode';
 import { activate as activateCompletions } from './features/linkCompletions';
+import { activate as activateLinks } from './features/linkProvider';
 import { activate as activateDecorations } from './features/decorations';
 import { activate as activatePeekBacklinks } from './features/peekBacklinks';
 import { logger } from './core';
@@ -17,6 +18,7 @@ export async function activate(context: ExtensionContext) {
     const cortex = await buildCortex();
 
     activateDecorations(context, cortex);
+    activateLinks(context, cortex);
     activateCompletions(context, cortex);
     activatePeekBacklinks(context, cortex);
 

@@ -6,9 +6,11 @@
 - does package.json default exclude pattern work? what if user creates file in excluded folder? should be filtered
 - org / plaintext files?
 - use own icon
-- does this make sens or can it be simplified? _cortex.get(getPageName(uri));
+- does this make sense or can it be simplified? _cortex.get(getPageName(uri));
 - casing ([[Nexus]] vs [[nexus]])
 - replace https://svgsilh.com/svg/155655.svg peek backlinks background image
 - how to handle non-existing pages in peek backlinks view?
-- peek backlinks: Hashtags are not being rendered properly due to wikilink optimization
 - remove hashtag support?? there will be a problem with allowed characters
+- when app starts and document is already open but not activated, decorations are missing
+- background image should not scroll
+- link decorations: sync with backlinks webview link styling

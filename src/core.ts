@@ -6,12 +6,20 @@ export const documentSelector = [
     { language: 'markdown', scheme: 'file' }
 ];
 
+export class Block {
+    constructor(
+        public readonly range: Range,
+        public readonly links: PageLink[]) {
+        //
+    }
+}
+
 export class Page {
     constructor(
         public readonly name: string,
         public uri: Uri | undefined,
         public uriAsString: string | undefined,
-        public readonly links: PageLink[],
+        public readonly blocks: Block[],
         public readonly backlinks: PageLink[]) {
         //
     }

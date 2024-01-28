@@ -1,7 +1,7 @@
 // https://github.com/microsoft/vscode-extension-samples/blob/main/webview-view-sample
 
-import { CancellationToken, Disposable, ExtensionContext, TextDocument, TextEditor, Uri, WebviewView, WebviewViewProvider, WebviewViewResolveContext, commands, window, workspace } from "vscode";
-import { Page, PageLink } from "../core";
+import { CancellationToken, Disposable, ExtensionContext, TextEditor, Uri, WebviewView, WebviewViewProvider, WebviewViewResolveContext, commands, window, workspace } from "vscode";
+import { Block, LinkType, Page, PageLink } from "../core";
 import { getOpenFileCommandUri, getPageName, isSupportedFile } from "../utils";
 
 export function activate(context: ExtensionContext, cortex: Map<string, Page>)
@@ -14,23 +14,13 @@ export function activate(context: ExtensionContext, cortex: Map<string, Page>)
             provider));
 }
 
-interface LinkedPageDetails {
-    titleLength: number;
-    startLine: number;
-    endLine: number;
-    minLine: number;
-}
-
 class PeekBacklinksViewProvider implements WebviewViewProvider {
 
-    private _cortex: Map<string, Page>;
-    private _pageToLinkedPageDetailsMap = new Map<Uri, Map<TextDocument, LinkedPageDetails>>();
     private _webviewView: WebviewView | undefined;
     private _subscription: Disposable;
     private _defaultMessage = "<h2>Open a cortex document to show it's backlinks.</h2>";
 
-    constructor(cortex: Map<string, Page>) {
-        this._cortex = cortex;
+    constructor(private cortex: Map<string, Page>) {
 
         // ensure that the peek document content is updated when the user opens another wiki document
         this._subscription = window.onDidChangeActiveTextEditor(this.updateView, this);
@@ -133,8 +123,7 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
 
     private async buildMarkdown(uri: Uri): Promise<string> {
 
-        const linkedDocDetailsMap = this.getOrCreatePageEntry(uri, /* reset */ true);
-        const page = this._cortex.get(getPageName(uri));
+        const page = this.cortex.get(getPageName(uri));
 
         if (!page) {
             return Promise.resolve(this._defaultMessage);
@@ -173,84 +162,88 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
             });
 
         // loop over each backlinks group and build up text response
-        let currentLine = 0;
+        let consumedBlocks = new Set<Block>();
 
         for (const backlinksGroup of sortedBacklinksGroups) {
 
-            // get or create 'linkedPageDetails'
-            let linkedPageDetails: LinkedPageDetails;
             const sourcePage = backlinksGroup[0];
             const sourcePageUri = sourcePage.uri!;
-            const document = await workspace.openTextDocument(sourcePageUri);
 
-            if (linkedDocDetailsMap.has(document)) {
+            // append backlink source's URI as link to the text response
+            const workspaceFolderUri = workspace
+                .getWorkspaceFolder(sourcePageUri)?.uri!;
+       
+            const title = sourcePage.name;
+            const relativeUri = sourcePageUri.path.replace(workspaceFolderUri.path, '');
 
-                linkedPageDetails = linkedDocDetailsMap.get(document)!;
-
-            } else {
-
-                // append backlink source's URI to the text response
-                const workspaceFolderUri = workspace
-                    .getWorkspaceFolder(sourcePageUri)?.uri!;
-               
-                const title = sourcePage.name;
-                const relativeUri = sourcePageUri.path.replace(workspaceFolderUri.path, '');
-
-                if (responseLines.length > 0) {
-                    responseLines.push('');
-                    currentLine++;
-                }
-
-                linkedPageDetails = {
-                    titleLength: title.length,
-                    startLine: currentLine,
-                    endLine: undefined!,
-                    minLine: 0,
-                };
-
-                linkedDocDetailsMap.set(document, linkedPageDetails);
-               
-                const openFileCommandUri = getOpenFileCommandUri(sourcePageUri);
-
-                responseLines.push(`<span class="source-page-title-row">**<span class="source-page-title">[${title}](${openFileCommandUri})</span> ${relativeUri.substring(0, relativeUri.length - title.length - 3)}**</span>`);
+            if (responseLines.length > 0) {
                 responseLines.push('');
-
-                currentLine += 2;
             }
 
+            const openFileCommandUri = getOpenFileCommandUri(sourcePageUri);
+
+            responseLines.push(`<span class="source-page-title-row">**<span class="source-page-title">[${title}](${openFileCommandUri})</span> ${relativeUri.substring(0, relativeUri.length - title.length - 3)}**</span>`);
+            responseLines.push('');
+
             // loop over each backlink
-            let backlinks = backlinksGroup[1];
+            const document = await workspace.openTextDocument(sourcePageUri);
+            const backlinks = backlinksGroup[1];
 
             for (const backlink of backlinks) {
 
-                // append wiki doc content to the text response
-                const backlinkLine = backlink.range.start.line;
+                // find block containing link
+                for (const block of sourcePage.blocks) {
 
-                currentLine += this.appendLeading(
-                    sourcePage,
-                    document,
-                    backlinkLine,
-                    linkedPageDetails,
-                    responseLines
-                );
+                    if (!block.range.contains(backlink.range) || consumedBlocks.has(block)) {
+                        continue;
+                    }
 
-                currentLine += this.appendMatch(
-                    sourcePage,
-                    document,
-                    backlinkLine,
-                    linkedPageDetails,
-                    responseLines
-                );
+                    // make page links real links
+                    const blockStartOffset = document.offsetAt(block.range.start);
+                    let blockText = document.getText(block.range);
+                    let offsetDueToEdit = 0;
 
-                currentLine += this.appendTrailing(
-                    sourcePage,
-                    document,
-                    backlinkLine,
-                    linkedPageDetails,
-                    responseLines
-                );
+                    for (const link of block.links) {
 
-                linkedPageDetails.endLine = currentLine;
+                        if (link.target.uri) {
+
+                            const linkStartOffset = document.offsetAt(link.range.start) - blockStartOffset + offsetDueToEdit;
+                            const linkEndOffset = document.offsetAt(link.range.end) - blockStartOffset + offsetDueToEdit;
+
+                            const prefix = blockText.substring(0, linkStartOffset);
+                            const suffix = blockText.substring(linkEndOffset);
+                            const openFileCommandUri = getOpenFileCommandUri(link.target.uri);
+
+                            const previousResultLength = blockText.length;
+
+                            let linkContent: string;
+
+                            switch (link.type) {
+
+                                case LinkType.Wikilink:
+
+                                    linkContent = blockText.substring(linkStartOffset + 2, linkEndOffset - 2);
+                                    blockText = `${prefix}<span class="page-link-indicator">[[</span><span class="page-link-name">[${linkContent}](${openFileCommandUri})</span><span class="page-link-indicator">]]</span>${suffix}`;
+                                    break;
+                            
+                                case LinkType.Hashtag:
+                                
+                                    linkContent = blockText.substring(linkStartOffset + 1, linkEndOffset);
+                                    blockText = `${prefix}<span class="page-link-indicator">#</span><span class="page-link-name">[${linkContent}](${openFileCommandUri})</span>${suffix}`;
+                                    break;
+                                    
+                                default:
+                                    break;
+                            }
+
+                            offsetDueToEdit += blockText.length - previousResultLength;
+                        }
+                    }
+                    
+                    responseLines.push(blockText);
+                    
+                    consumedBlocks.add(block);
+                }
             }
         }
 
@@ -262,144 +255,5 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         const response = responseLines.join('\n');
 
         return response;
-    }
-
-    // helper methods
-    private getOrCreatePageEntry(currentPageUri: Uri, reset: boolean = false): Map<TextDocument, LinkedPageDetails> {
-
-        if (reset || !this._pageToLinkedPageDetailsMap.has(currentPageUri)) {
-            this._pageToLinkedPageDetailsMap.set(
-                currentPageUri,
-                new Map<TextDocument, LinkedPageDetails>()
-            );
-        }
-
-        return this._pageToLinkedPageDetailsMap.get(currentPageUri)!;
-    }
-
-    private appendLeading(
-        sourcePage: Page,
-        sourceDdocument: TextDocument,
-        backlinkLine: number,
-        linkedPageDetails: LinkedPageDetails,
-        responseLines: string[]
-    ): number {
-        
-        const minLine = linkedPageDetails.minLine;
-        let fromRequested: number;
-        
-        if (sourceDdocument.lineAt(backlinkLine).text.startsWith("-")) {
-            return 0;
-        }
-
-        fromRequested = 0;
-            
-        for (let i = backlinkLine - 1; i >= 0; i--) {
-            if (sourceDdocument.lineAt(i).text.startsWith("-")) {
-                fromRequested = i;
-                break;
-            }
-        }
-
-        const from = Math.max(minLine, fromRequested);
-        const to = backlinkLine;
-        let lineCount = 0;
-
-        if (fromRequested >= minLine && minLine !== 0) {
-            responseLines.push('...');
-            lineCount++;
-        }
-
-        for (let i = from; i < to; i++) {
-            let text = sourceDdocument.lineAt(i).text;
-            text = this.formatPageLinks(sourcePage, text, i);
-
-            responseLines.push(text);
-            lineCount++;
-            linkedPageDetails.minLine = i + 1;
-        }
-
-        return lineCount;
-    }
-
-    private appendMatch(
-        sourcePage: Page,
-        sourceDocument: TextDocument,
-        backlinkLine: number,
-        linkedPageDetails: LinkedPageDetails,
-        responseLines: string[]
-    ) {
-        if (backlinkLine < linkedPageDetails.minLine) {
-            return 0;
-        }
-
-        let text = sourceDocument.lineAt(backlinkLine).text;
-        text = this.formatPageLinks(sourcePage, text, backlinkLine);
-
-        responseLines.push(text);
-        linkedPageDetails.minLine = backlinkLine + 1;
-
-        return 1;
-    }
-
-    private appendTrailing(
-        sourcePage: Page,
-        sourceDocument: TextDocument,
-        backlinkLine: number,
-        linkedPageDetails: LinkedPageDetails,
-        responseLines: string[]
-    ): number {
-        const minLine = linkedPageDetails.minLine;
-        const from = Math.max(minLine, backlinkLine);
-        let to: number;
-
-        to = sourceDocument.lineCount;
-        
-        for (let i = backlinkLine + 1; i < sourceDocument.lineCount; i++) {
-            if (sourceDocument.lineAt(i).text.startsWith("-")) {
-                to = i - 1;
-                break;
-            };
-        }
-
-        let lineCount = 0;
-
-        for (let i = from; i < to; i++) {
-            let text = sourceDocument.lineAt(i).text;
-            text = this.formatPageLinks(sourcePage, text, i);
-
-            responseLines.push(text);
-            lineCount++;
-            linkedPageDetails.minLine = i + 1;
-        }
-
-        return lineCount;
-    }
-
-    private formatPageLinks(
-        page: Page,
-        text: string,
-        line: number): string {
-        
-        let result = text;
-        let offset = 0;
-        
-        for (const link of page.links) {
-
-            if (link.target.uri && link.range.start.line === line) {
-
-                const prefix = result.substring(0, link.range.start.character + offset);
-                const pageName = result.substring(link.range.start.character + offset + 2, link.range.end.character + offset - 2);
-                const suffix = result.substring(link.range.end.character + offset);
-                const openFileCommandUri = getOpenFileCommandUri(link.target.uri);
-
-                const previousResultLength = result.length;
-                result = `${prefix}<span class="page-link-indicator">[[</span><span class="page-link-name">[${pageName}](${openFileCommandUri})</span><span class="page-link-indicator">]]</span>${suffix}`;
-
-                offset += result.length - previousResultLength;
-            }
-        }
-
-        return result;
     }
 }

@@ -2,7 +2,7 @@ import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
 import { Page, logger } from "../core";
 import { linkDecorationType } from "../decorationTypes";
 import { isSupportedFile } from "../utils";
-import { updateCortexPage } from "../cortex";
+import { getPageByUri, updateCortexPage } from "../cortex";
 
 export async function activate(
     context: ExtensionContext,
@@ -18,23 +18,17 @@ export async function activate(
         logger.appendLine(`Update decorations for ${editor.document.uri}`);
 
         const ranges: Range[] = [];
-        const documentUriAsString = editor.document.uri.toString();
-        let page: Page | undefined;
-
-        // TODO maybe create a Map<Uri, Page> for simpler lookup (but Uri is not working as key, is it?)?
-        for (const current of cortex.values()) {
-            if (current.uriAsString === documentUriAsString) {
-                page = current;
-                break;
-            }
-        }
+        const page = getPageByUri(cortex, editor.document.uri);
 
         if (!page) {
             return;
         }
 
-        for (const link of page.links) {
-            ranges.push(link.range);
+        for (const block of page.blocks) {
+
+            for (const link of block.links) {
+                ranges.push(link.range);
+            }
         }
   
         editor.setDecorations(linkDecorationType, ranges);

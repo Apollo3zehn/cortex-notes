@@ -1,6 +1,6 @@
 import { posix } from "path";
-import { workspace, Range, Uri, TextDocument } from "vscode";
-import { Page, logger, PageLink, LinkType } from "./core";
+import { workspace, Range, Uri, TextDocument, TextLine, Position } from "vscode";
+import { Page, logger, PageLink, LinkType, Block } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
 
@@ -40,44 +40,52 @@ export async function buildCortex(): Promise<Map<string, Page>> {
 
 export function updateCortexPage(cortex: Map<string, Page>, document: TextDocument) {
 
-    let pageName = getPageName(document.uri);
+    const pageName = getPageName(document.uri);
     logger.appendLine(`Update page ${pageName}`);
 
-    let page = getOrCreatePage(cortex, pageName, document.uri);
-    const clonedLinks = [...page.links];
+    const page = getOrCreatePage(cortex, pageName, document.uri);
+    const clonedLinksMap = new Map<Block, PageLink[]>();
 
-    // clear links of source page and backlinks of target page
+    // clear links in all blocks of source page and backlinks of target page
     const processedTargetPages = new Set<Page>();
 
-    for (const link of page.links) {
+    for (const block of page.blocks) {
+        
+        clonedLinksMap.set(block, [...block.links]);
 
-        const targetPage = link.target;
+        for (const link of block.links) {
 
-        if (processedTargetPages.has(targetPage)) {
-            continue;
+            const targetPage = link.target;
+
+            if (processedTargetPages.has(targetPage)) {
+                continue;
+            }
+
+            const targetPageBacklinks = targetPage.backlinks;
+            const linksToKeep = targetPageBacklinks.filter(current => current.source !== page);
+
+            targetPageBacklinks.length = 0;
+            targetPageBacklinks.push(...linksToKeep);
+
+            processedTargetPages.add(targetPage);
         }
 
-        const targetPageBacklinks = targetPage.backlinks;
-        const linksToKeep = targetPageBacklinks.filter(current => current.source !== page);
-
-        targetPageBacklinks.length = 0;
-        targetPageBacklinks.push(...linksToKeep);
-
-        processedTargetPages.add(targetPage);
+        block.links.length = 0;
     }
-
-    page.links.length = 0;
 
     // analyze cortex file
     analyzeCortexFile(cortex, document);
 
     // delete orphaned pages
-    for (const link of clonedLinks) {
+    for (const links of clonedLinksMap.values()) {
 
-        const targetPage = link.target;
+        for (const link of links) {
 
-        if (!targetPage.uri && targetPage.backlinks.length === 0) {
-            deleteCortexPage(cortex, targetPage);
+            const targetPage = link.target;
+
+            if (!targetPage.uri && targetPage.backlinks.length === 0) {
+                deleteCortexPage(cortex, targetPage);
+            }
         }
     }
 }
@@ -88,11 +96,18 @@ export function deleteCortexPage(cortex: Map<string, Page>, page: Page) {
 
     // clear backlinks
     for (const backlink of page.backlinks) {
-        const linksOfTarget = backlink.target.links;
-        const linksToKeep = linksOfTarget.filter(current => current.source !== page);
+        
+        for (const block of backlink.target.blocks) {
+        
+            const linksOfTarget = block.links;
+            const linksToKeep = linksOfTarget.filter(current => current.source !== page);
 
-        linksOfTarget.length = 0;
-        linksOfTarget.push(...linksToKeep);
+            // something has changed
+            if (linksToKeep.length < linksOfTarget.length) {
+                linksOfTarget.length = 0;
+                linksOfTarget.push(...linksToKeep);
+            }
+        }
     }
 
     // delete page
@@ -119,53 +134,92 @@ function analyzeCortexFile(
 
     const sourcePageName = getPageName(uri);
     const sourcePage = getOrCreatePage(cortex, sourcePageName, uri);
-    const allMatches: RegExpMatchArray[] = [];
-    
-    // wikilinks
-    const text = document.getText();
-    const wikilinkMatches = text.matchAll(_wikilinkRegex);
 
-    for (const match of wikilinkMatches) {
-
-        if (!match.indices) {
-            return;
-        }
-
-        match.indices[1][0] -= 2;
-        match.indices[1][1] += 2;
-
-        allMatches.push(match);
+    if (document.lineCount === 0) {
+        return;
     }
 
-    const hashTagMatches = text.matchAll(_hashTagsRegex);
+    // blocks
+    let blockStartLine: number = 0;
+    let line = document.lineAt(0);
 
-    // hashtags
-    for (const match of hashTagMatches) {
-        
-        if (!match.indices) {
-            return;
+    for (let i = 0; i < document.lineCount; i++) {
+
+        // store current block if 
+        // - all lines have been processed, or
+        // - a new block is about to start
+        const isLastLine = i === document.lineCount - 1;
+
+        if (isLastLine || (line = document.lineAt(i + 1)).text.startsWith("-")) {
+
+            const blockEndLine = i;
+            const blockCharacterEnd = document.lineAt(blockEndLine).range.end.character;
+
+            const blockRange = new Range(
+                new Position(blockStartLine, 0),
+                new Position(blockEndLine, blockCharacterEnd)
+            );
+
+            const blockMatchesAndLinkType: [RegExpMatchArray, LinkType][] = [];
+
+            // find wikilinks
+            const blockText = document.getText(blockRange);
+            const wikilinkMatches = blockText.matchAll(_wikilinkRegex);
+
+            for (const match of wikilinkMatches) {
+
+                if (!match.indices) {
+                    return;
+                }
+
+                match.indices[1][0] -= 2;
+                match.indices[1][1] += 2;
+
+                blockMatchesAndLinkType.push([match, LinkType.Wikilink]);
+            }
+
+            const hashTagMatches = blockText.matchAll(_hashTagsRegex);
+
+            // find hashtags
+            for (const match of hashTagMatches) {
+                
+                if (!match.indices) {
+                    return;
+                }
+
+                match.indices[1][0] -= 1;
+
+                blockMatchesAndLinkType.push([match, LinkType.Hashtag]);
+            }
+
+            // process & store collected page links
+            const blockOffset = document.offsetAt(blockRange.start);
+            const blockLinks: PageLink[] = [];
+
+            for (const [match, linkType] of blockMatchesAndLinkType) {
+
+                const targetPageName = match[1];
+                logger.appendLine(`Found link ${sourcePageName} --> ${targetPageName}`);
+
+                const targetPage = getOrCreatePage(cortex, targetPageName, undefined);
+                const indices = match.indices![1];
+                const startPos = document.positionAt(blockOffset + indices[0]);
+                const endPos = document.positionAt(blockOffset + indices[1]);
+                const range = new Range(startPos, endPos);
+                const pageLink = new PageLink(sourcePage, targetPage, range, linkType);
+
+                blockLinks.push(pageLink);
+                targetPage.backlinks.push(pageLink);
+            }
+            
+            const block = new Block(blockRange, blockLinks);
+
+            sourcePage.blocks.push(block);
+
+            // update state
+            blockStartLine = i + 1;
+            blockMatchesAndLinkType.length = 0;
         }
-
-        match.indices[1][0] -= 1;
-
-        allMatches.push(match);
-    }
-
-    // processing
-    for (const match of allMatches) {
-
-        const targetPageName = match[1];
-        logger.appendLine(`Found link ${sourcePageName} --> ${targetPageName}`);
-
-        const targetPage = getOrCreatePage(cortex, targetPageName, undefined);
-        const indices = match.indices![1];
-        const startPos = document.positionAt(indices[0]);
-        const endPos = document.positionAt(indices[1]);
-        const range = new Range(startPos, endPos);
-        const pageLink = new PageLink(sourcePage, targetPage, range, LinkType.Wikilink);
-
-        sourcePage.links.push(pageLink);
-        targetPage.backlinks.push(pageLink);
     }
 }
 
@@ -196,6 +250,24 @@ function getOrCreatePage(
             []);
         
         cortex.set(pageName, page);
+    }
+
+    return page;
+}
+
+export function getPageByUri(
+    cortex: Map<string, Page>,
+    uri: Uri): Page | undefined {
+
+    const documentUriAsString = uri.toString();
+    let page: Page | undefined;
+
+    // TODO maybe create a Map<Uri, Page> for simpler lookup (but Uri is not working as key, is it?)?
+    for (const current of cortex.values()) {
+        if (current.uriAsString === documentUriAsString) {
+            page = current;
+            break;
+        }
     }
 
     return page;
