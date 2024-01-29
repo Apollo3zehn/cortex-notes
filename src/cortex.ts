@@ -61,16 +61,19 @@ export function updateCortexPage(cortex: Map<string, Page>, document: TextDocume
                 continue;
             }
 
-            const targetPageBacklinks = targetPage.backlinks;
-            const linksToKeep = targetPageBacklinks.filter(current => current.source !== page);
+            const backLinksOfTarget = targetPage.backlinks;
+            const backLinksToKeep = backLinksOfTarget.filter(current => current.source !== page);
 
-            targetPageBacklinks.length = 0;
-            targetPageBacklinks.push(...linksToKeep);
+            // something has changed
+            if (backLinksToKeep.length < backLinksOfTarget.length) {
+                backLinksOfTarget.length = 0;
+                backLinksOfTarget.push(...backLinksToKeep);
+            }
 
             processedTargetPages.add(targetPage);
         }
 
-        block.links.length = 0;
+        page.blocks.length = 0;
     }
 
     // analyze cortex file
