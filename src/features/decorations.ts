@@ -1,6 +1,6 @@
 import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
-import { Page, logger } from "../core";
-import { linkDecorationType } from "../decorationTypes";
+import { LinkType, Page, logger } from "../core";
+import { pageLinkIndicatorDecorationType, pageLinkTitleDecorationType } from "../decorationTypes";
 import { isSupportedFile } from "../utils";
 import { getPageByUri, updateCortexPage } from "../cortex";
 
@@ -17,7 +17,8 @@ export async function activate(
 
         logger.appendLine(`Update decorations for ${editor.document.uri}`);
 
-        const ranges: Range[] = [];
+        const linkIndicatorRanges: Range[] = [];
+        const linkTitleRanges: Range[] = [];
         const page = getPageByUri(cortex, editor.document.uri);
 
         if (!page) {
@@ -27,11 +28,66 @@ export async function activate(
         for (const block of page.blocks) {
 
             for (const link of block.links) {
-                ranges.push(link.range);
+
+                if (!link.target.uri) {
+                    continue;
+                }
+
+                let linkIndicatorRange1: Range;
+                let linkIndicatorRange2: Range | undefined;
+                let linkTitleRange: Range;
+
+                switch (link.type) {
+
+                    case LinkType.Wikilink:
+                        
+                        linkIndicatorRange1 = link.range.with(
+                            link.range.start,
+                            link.range.start.with(undefined, link.range.start.character + 2)
+                        );
+
+                        linkIndicatorRange2 = link.range.with(
+                            link.range.end.with(undefined, link.range.end.character - 2),
+                            link.range.end
+                        );
+                        
+                        linkTitleRange = link.range.with(
+                            link.range.start.with(undefined, link.range.start.character + 2),
+                            link.range.end.with(undefined, link.range.end.character - 2)
+                        );
+
+                        break;
+
+                    case LinkType.Hashtag:
+
+                        linkIndicatorRange1 = link.range.with(
+                            link.range.start,
+                            link.range.start.with(undefined, link.range.start.character + 1)
+                        );
+                        
+                        linkTitleRange = link.range.with(
+                            link.range.start.with(undefined, link.range.start.character + 1),
+                            undefined
+                        );
+
+                        break;
+                    
+                    default:
+                        continue;
+                }
+
+                linkIndicatorRanges.push(linkIndicatorRange1);
+
+                if (linkIndicatorRange2) {
+                    linkIndicatorRanges.push(linkIndicatorRange2);
+                }
+
+                linkTitleRanges.push(linkTitleRange);
             }
         }
   
-        editor.setDecorations(linkDecorationType, ranges);
+        editor.setDecorations(pageLinkIndicatorDecorationType, linkIndicatorRanges);
+        editor.setDecorations(pageLinkTitleDecorationType, linkTitleRanges);
     };
     
     // set decorations when document is opened

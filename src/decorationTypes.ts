@@ -1,8 +1,9 @@
 import { window } from "vscode";
 
-export const linkDecorationType = window.createTextEditorDecorationType({
+export const pageLinkTitleDecorationType = window.createTextEditorDecorationType({
     color: "#2aa198",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    textDecoration: "None"
     // no so useful in solarized style:
     // light: {
     //   backgroundColor: '#02adc422',
@@ -10,4 +11,11 @@ export const linkDecorationType = window.createTextEditorDecorationType({
     // dark: {
     //   backgroundColor: '#02adc422',
     // }
+});
+
+export const pageLinkIndicatorDecorationType = window.createTextEditorDecorationType({
+    color: "#004354",
+    fontWeight: "bold; font-size: 1.2em",
+    letterSpacing: "0.1em",
+    textDecoration: "None"
 });

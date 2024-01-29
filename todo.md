@@ -14,3 +14,5 @@
 - when app starts and document is already open but not activated, decorations are missing
 - background image should not scroll
 - link decorations: sync with backlinks webview link styling
+- flex column wrap on large screens
+- markdown preview highlight links
