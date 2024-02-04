@@ -31,21 +31,31 @@
     "viewsContainers": {
       "panel": [
         {
-          "id": "cortex-notes-backlinks-container",
-          "title": "Backlinks",
+          "id": "cortex-notes-container",
+          "title": "Cortex",
           "icon": "resources/backlinks.svg"
         }
       ]
     },
     "views": {
-      "cortex-notes-backlinks-container": [
+      "cortex-notes-container": [
+        {
+          "id": "cortex-notes.todos",
+          "name": "TODOs"
+        },
         {
           "type": "webview",
-          "id": "cortex-notes.peek-backlinks",
-          "name": "Peek backlinks"
+          "id": "cortex-notes.backlinks",
+          "name": "Backlinks"
         }
       ]
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "cortex-notes.todos",
+        "contents": "No TODO items could be found for the currently opened document. See <insert link> for more information."
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
@@ -56,14 +66,18 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
-    "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
     "@vscode/test-cli": "^0.0.4",
-    "@vscode/test-electron": "^2.3.8"
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "octokit": "^3.1.2",
+    "toml": "^3.0.0"
   }
 }

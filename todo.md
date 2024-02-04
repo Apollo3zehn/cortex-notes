@@ -8,11 +8,18 @@
 - use own icon
 - does this make sense or can it be simplified? _cortex.get(getPageName(uri));
 - casing ([[Nexus]] vs [[nexus]])
-- replace https://svgsilh.com/svg/155655.svg peek backlinks background image
-- how to handle non-existing pages in peek backlinks view?
+- replace https://svgsilh.com/svg/155655.svg backlinks background image
+- how to handle non-existing pages in backlinks view?
 - remove hashtag support?? there will be a problem with allowed characters
 - when app starts and document is already open but not activated, decorations are missing
 - background image should not scroll
-- link decorations: sync with backlinks webview link styling
 - flex column wrap on large screens
 - markdown preview highlight links
+- create or open journal page command
+- insert markdown links more easily (e.g. Teams links, asks for title when pasting it)
+- email deep-linking ... preview would be even better
+- gitlab/github issues
+- toml json schema
+- todo view: 
+    - paged gitlab/github issues
+    - list issues and pull requests separately

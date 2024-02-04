@@ -2,7 +2,8 @@ import { ExtensionContext, workspace } from 'vscode';
 import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateLinks } from './features/linkProvider';
 import { activate as activateDecorations } from './features/decorations';
-import { activate as activatePeekBacklinks } from './features/peekBacklinks';
+import { activate as activateBacklinks } from './features/backlinks';
+import { activate as activateTodo } from './features/todos';
 import { logger } from './core';
 import { buildCortex, deleteCortexPageByUri } from './cortex';
 
@@ -20,7 +21,8 @@ export async function activate(context: ExtensionContext) {
     activateDecorations(context, cortex);
     activateLinks(context, cortex);
     activateCompletions(context, cortex);
-    activatePeekBacklinks(context, cortex);
+    activateBacklinks(context, cortex);
+    activateTodo(context);
 
     // update on delete
     const watcher = workspace.createFileSystemWatcher('**/*');

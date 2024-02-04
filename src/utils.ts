@@ -1,4 +1,4 @@
-import { TextDocument, Uri } from "vscode";
+import { FileType, TextDocument, Uri, workspace } from "vscode";
 import { documentSelector as mdDocumentSelector } from "./core";
 import { posix } from "path";
 
@@ -7,7 +7,7 @@ export function getPageName(uri: Uri): string {
 }
 
 // TODO replace by own implementation (credits go to Foam)
-function changeExtension(
+export function changeExtension(
     path: string,
     from: string,
     next: string
@@ -40,4 +40,13 @@ export function getOpenFileCommandUri(uri: Uri): Uri {
     return Uri.parse(
         `command:vscode.open?${encodeURIComponent(JSON.stringify(uri))}`
     );
+}
+
+export async function fileExists(uri: Uri): Promise<boolean> {
+    try {
+        const fileStat = await workspace.fs.stat(uri);
+        return fileStat.type === FileType.File;
+    } catch (e) {
+        return false;
+    }
 }

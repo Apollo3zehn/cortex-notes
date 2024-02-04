@@ -4,7 +4,7 @@ export const pageLinkTitleDecorationType = window.createTextEditorDecorationType
     color: "#2aa198",
     fontWeight: "bold",
     textDecoration: "None"
-    // no so useful in solarized style:
+    // no so useful with solarized mode:
     // light: {
     //   backgroundColor: '#02adc422',
     // },

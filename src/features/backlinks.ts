@@ -6,15 +6,15 @@ import { getOpenFileCommandUri, getPageName, isSupportedFile } from "../utils";
 
 export function activate(context: ExtensionContext, cortex: Map<string, Page>)
 {
-    const provider = new PeekBacklinksViewProvider(cortex);
+    const provider = new BacklinksViewProvider(cortex);
 
     context.subscriptions.push(
         window.registerWebviewViewProvider(
-            'cortex-notes.peek-backlinks',
+            'cortex-notes.backlinks',
             provider));
 }
 
-class PeekBacklinksViewProvider implements WebviewViewProvider {
+class BacklinksViewProvider implements WebviewViewProvider {
 
     private _webviewView: WebviewView | undefined;
     private _subscription: Disposable;
@@ -22,7 +22,7 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
 
     constructor(private cortex: Map<string, Page>) {
 
-        // ensure that the peek document content is updated when the user opens another wiki document
+        // ensure that the document content is updated when the user opens another wiki document
         this._subscription = window.onDidChangeActiveTextEditor(this.updateView, this);
     }
 
@@ -248,7 +248,7 @@ class PeekBacklinksViewProvider implements WebviewViewProvider {
         }
 
         if (responseLines.length === 0) {
-            responseLines.push('There are no backlinks to peek.');
+            responseLines.push('There are no backlinks.');
         }
 
         // format page links
