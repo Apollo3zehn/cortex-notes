@@ -18,7 +18,7 @@ abstract class CollapsibleTreeItem extends TreeItem {
     abstract getChildren(): Promise<TreeItem[]>;
 }
 
-class GitHubIssueItem extends TreeItem {
+class IssueItem extends TreeItem {
     constructor(
         public readonly label: string,
         public readonly url: string,
@@ -34,6 +34,50 @@ class GitHubIssueItem extends TreeItem {
             command: "vscode.open",
             arguments: [Uri.parse(url)]
         };
+    }
+}
+
+class GitLabIssuesItem extends CollapsibleTreeItem {
+
+    constructor(
+        public readonly config: any,
+    ) {
+        super(
+            `GitLab Issues: ${config.repository}`,
+            TreeItemCollapsibleState.Collapsed
+        );
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+
+        const projectId = encodeURIComponent(this.config.repository);
+        const url = `${this.config.base_url}/api/v4/projects/${projectId}/issues?assignee_username=${this.config.assignee_username}`;
+
+        const response = await fetch(url, {
+            headers: {
+                Authorization: `Bearer ${this.config.api_key}`
+            }
+        });
+
+        const issues = (await response.json()) as any[];
+        
+        const todoItems = issues
+            .map(issue => {
+
+                const labels = (<string[]>issue.labels);
+
+                const labelString = labels.length === 0
+                    ? ''
+                    : ` [${labels.join(' | ')}]`;
+
+                return new IssueItem(
+                    `#${issue.iid} - ${issue.title}${labelString}`,
+                    issue.web_url,
+                    new MarkdownString(issue.description),
+                    TreeItemCollapsibleState.None);
+            });
+        
+        return todoItems;
     }
 }
 
@@ -63,7 +107,7 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
             .filter(issue => !issue.pull_request)
             .map(issue => {
 
-                const labels = issue.labels.length === 0
+                const labelString = issue.labels.length === 0
                     ? ''
                     : ` [${issue.labels.map(label => {
 
@@ -77,8 +121,8 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
                         
                     }).join(' | ')}]`;
 
-                return new GitHubIssueItem(
-                    `#${issue.number} - ${issue.title}${labels}`,
+                return new IssueItem(
+                    `#${issue.number} - ${issue.title}${labelString}`,
                     issue.html_url,
                     new MarkdownString(issue.body ?? undefined),
                     TreeItemCollapsibleState.None);
@@ -151,6 +195,13 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
                         for (const projectConfig of Object.values(config.todo.github)) {
                             treeItems.push(new GitHubIssuesItem(projectConfig));
+                        }
+                    }
+
+                    if (config.todo.gitlab) {
+
+                        for (const projectConfig of Object.values(config.todo.gitlab)) {
+                            treeItems.push(new GitLabIssuesItem(projectConfig));
                         }
                     }
 
