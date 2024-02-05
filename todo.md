@@ -5,7 +5,6 @@
 - loglevel
 - does package.json default exclude pattern work? what if user creates file in excluded folder? should be filtered
 - org / plaintext files?
-- use own icon
 - does this make sense or can it be simplified? _cortex.get(getPageName(uri));
 - casing ([[Nexus]] vs [[nexus]])
 - replace https://svgsilh.com/svg/155655.svg backlinks background image
@@ -14,12 +13,11 @@
 - when app starts and document is already open but not activated, decorations are missing
 - background image should not scroll
 - flex column wrap on large screens
-- markdown preview highlight links
 - create or open journal page command
 - insert markdown links more easily (e.g. Teams links, asks for title when pasting it)
 - email deep-linking ... preview would be even better
-- gitlab/github issues
 - toml json schema
 - todo view: 
     - paged gitlab/github issues
     - list issues and pull requests separately
+- virtual workspaces: https://code.visualstudio.com/api/extension-guides/virtual-workspaces

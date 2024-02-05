@@ -1,7 +1,8 @@
-import { Event, EventEmitter, ExtensionContext, MarkdownString, ProviderResult, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, env, window, workspace } from "vscode";
+import { Event, EventEmitter, ExtensionContext, MarkdownString, ProviderResult, ThemeIcon, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, env, window, workspace } from "vscode";
 import toml from "toml";
 import { changeExtension, fileExists, isSupportedFile } from "../utils";
 import { Octokit } from "octokit";
+import path from "path";
 
 export async function activate(
     context: ExtensionContext) {
@@ -21,12 +22,14 @@ abstract class CollapsibleTreeItem extends TreeItem {
 class IssueItem extends TreeItem {
     constructor(
         public readonly label: string,
+        public readonly description: string,
         public readonly url: string,
         public readonly tooltip: MarkdownString,
         public readonly collapsibleState: TreeItemCollapsibleState) {
         
         super(label, collapsibleState);
 
+        this.description = description;
         this.tooltip = tooltip;
 
         this.command = {
@@ -46,6 +49,11 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
             `GitLab Issues: ${config.repository}`,
             TreeItemCollapsibleState.Collapsed
         );
+
+        this.iconPath = {
+            light: path.join(__filename, '..', '..', '..', 'resources', 'light', 'gitlab.svg'),
+            dark: path.join(__filename, '..', '..', '..', 'resources', 'dark', 'gitlab.svg')
+        };
     }
 
     async getChildren(): Promise<TreeItem[]> {
@@ -66,12 +74,13 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
 
                 const labels = (<string[]>issue.labels);
 
-                const labelString = labels.length === 0
+                const description = labels.length === 0
                     ? ''
-                    : ` [${labels.join(' | ')}]`;
-
+                    : labels.join(' | ');
+              
                 return new IssueItem(
-                    `#${issue.iid} - ${issue.title}${labelString}`,
+                    `#${issue.iid} - ${issue.title}`,
+                    description,
                     issue.web_url,
                     new MarkdownString(issue.description),
                     TreeItemCollapsibleState.None);
@@ -90,6 +99,11 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
             `GitHub Issues: ${config.repository}`,
             TreeItemCollapsibleState.Collapsed
         );
+
+        this.iconPath = {
+            light: path.join(__filename, '..', '..', '..', 'resources', 'light', 'github.svg'),
+            dark: path.join(__filename, '..', '..', '..', 'resources', 'dark', 'github.svg')
+        };
     }
 
     async getChildren(): Promise<TreeItem[]> {
@@ -107,9 +121,9 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
             .filter(issue => !issue.pull_request)
             .map(issue => {
 
-                const labelString = issue.labels.length === 0
+                const description = issue.labels.length === 0
                     ? ''
-                    : ` [${issue.labels.map(label => {
+                    : issue.labels.map(label => {
 
                         if (typeof label === "string") {
                             return label;
@@ -119,10 +133,11 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
                             return label.name;
                         }
                         
-                    }).join(' | ')}]`;
+                    }).join(' | ');
 
                 return new IssueItem(
-                    `#${issue.number} - ${issue.title}${labelString}`,
+                    `#${issue.number} - ${issue.title}`,
+                    description,
                     issue.html_url,
                     new MarkdownString(issue.body ?? undefined),
                     TreeItemCollapsibleState.None);
@@ -188,24 +203,46 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                 if (await fileExists(todoFileUri)) {
 
                     const document = await workspace.openTextDocument(todoFileUri);
-                    const config = toml.parse(document.getText()) as any;
-                    const treeItems: TreeItem[] = [];
 
-                    if (config.todo.github) {
+                    try {
+                    
+                        const config = toml.parse(document.getText()) as any;
+                        const treeItems: TreeItem[] = [];
+    
+                        if (config.todo) {
+    
+                            for (const todoConfig of config.todo) {
+    
+                                switch ((<any>todoConfig).type) {
+    
+                                    case "github-issues":
+                                        treeItems.push(new GitHubIssuesItem(todoConfig));
+                                        break;
+                                
+                                    case "gitlab-issues":
+                                        treeItems.push(new GitLabIssuesItem(todoConfig));
+                                        break;
 
-                        for (const projectConfig of Object.values(config.todo.github)) {
-                            treeItems.push(new GitHubIssuesItem(projectConfig));
+                                    default:
+                                        break;
+                                }
+                            }
                         }
+    
+                        resolve(treeItems);
+
+                    } catch (error) {
+
+                        let errorItem = new TreeItem(
+                            `Could not read .toml file: ${error}`
+                        );
+
+                        errorItem.iconPath = new ThemeIcon("error");
+
+                        resolve([
+                            errorItem
+                        ]);
                     }
-
-                    if (config.todo.gitlab) {
-
-                        for (const projectConfig of Object.values(config.todo.gitlab)) {
-                            treeItems.push(new GitLabIssuesItem(projectConfig));
-                        }
-                    }
-
-                    resolve(treeItems);
                 }
 
                 resolve([]);
