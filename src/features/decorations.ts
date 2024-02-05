@@ -1,6 +1,6 @@
 import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
-import { LinkType, Page, logger } from "../core";
-import { pageLinkIndicatorDecorationType, pageLinkTitleDecorationType } from "../decorationTypes";
+import { LinkType, Page, TodoState, logger } from "../core";
+import { doneDecorationType, pageLinkIndicatorDecorationType, pageLinkTitleDecorationType, todoDecorationType } from "../decorationTypes";
 import { isSupportedFile } from "../utils";
 import { getPageByUri, updateCortexPage } from "../cortex";
 
@@ -19,6 +19,8 @@ export async function activate(
 
         const linkIndicatorRanges: Range[] = [];
         const linkTitleRanges: Range[] = [];
+        const todoRanges: Range[] = [];
+        const doneRanges: Range[] = [];
         const page = getPageByUri(cortex, editor.document.uri);
 
         if (!page) {
@@ -33,7 +35,7 @@ export async function activate(
                     continue;
                 }
 
-                let linkIndicatorRange1: Range;
+                let linkIndicatorRange1: Range | undefined;
                 let linkIndicatorRange2: Range | undefined;
                 let linkTitleRange: Range;
 
@@ -71,12 +73,14 @@ export async function activate(
                         );
 
                         break;
-                    
+                                       
                     default:
-                        continue;
+                        linkTitleRange = link.range;
                 }
 
-                linkIndicatorRanges.push(linkIndicatorRange1);
+                if (linkIndicatorRange1) {
+                    linkIndicatorRanges.push(linkIndicatorRange1);
+                }
 
                 if (linkIndicatorRange2) {
                     linkIndicatorRanges.push(linkIndicatorRange2);
@@ -84,10 +88,26 @@ export async function activate(
 
                 linkTitleRanges.push(linkTitleRange);
             }
+
+            for (const todoItem of block.todoItems) {
+
+                switch (todoItem.state) {
+
+                    case TodoState.Todo:
+                        todoRanges.push(todoItem.range);
+                        break;
+                    
+                    case TodoState.Done:
+                        doneRanges.push(todoItem.range);
+                        break;
+                }
+            }
         }
   
         editor.setDecorations(pageLinkIndicatorDecorationType, linkIndicatorRanges);
         editor.setDecorations(pageLinkTitleDecorationType, linkTitleRanges);
+        editor.setDecorations(todoDecorationType, todoRanges);
+        editor.setDecorations(doneDecorationType, doneRanges);
     };
     
     // set decorations when document is opened

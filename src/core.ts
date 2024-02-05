@@ -9,7 +9,8 @@ export const documentSelector = [
 export class Block {
     constructor(
         public readonly range: Range,
-        public readonly links: PageLink[]) {
+        public readonly links: PageLink[],
+        public readonly todoItems: TodoItem[]) {
         //
     }
 }
@@ -37,6 +38,18 @@ export class PageLink {
 
 export enum LinkType {
     Wikilink,
-    Hashtag,
-    Todo
+    Hashtag
+}
+
+export class TodoItem {
+    constructor(
+        public readonly range: Range,
+        public readonly state: TodoState) {
+        //
+    }
+}
+
+export enum TodoState {
+    Todo,
+    Done
 }

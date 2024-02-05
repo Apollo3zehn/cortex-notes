@@ -55,7 +55,13 @@
         "view": "cortex-notes.todos",
         "contents": "No TODO items could be found for the currently opened document. See <insert link> for more information."
       }
-    ]
+    ],
+    "keybindings": [
+      {
+          "command": "cortex-notes.toggle-todo-state",
+          "key": "ctrl+c ctrl+t"
+      }
+  ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",

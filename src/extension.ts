@@ -3,7 +3,8 @@ import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateLinks } from './features/linkProvider';
 import { activate as activateDecorations } from './features/decorations';
 import { activate as activateBacklinks } from './features/backlinks';
-import { activate as activateTodo } from './features/todos';
+import { activate as activateTodo } from './features/todoCollector';
+import { activate as activateCommands } from './features/commands';
 import { logger } from './core';
 import { buildCortex, deleteCortexPageByUri } from './cortex';
 
@@ -23,6 +24,7 @@ export async function activate(context: ExtensionContext) {
     activateCompletions(context, cortex);
     activateBacklinks(context, cortex);
     activateTodo(context);
+    activateCommands(context, cortex);
 
     // update on delete
     const watcher = workspace.createFileSystemWatcher('**/*');

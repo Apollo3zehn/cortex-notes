@@ -19,3 +19,15 @@ export const pageLinkIndicatorDecorationType = window.createTextEditorDecoration
     letterSpacing: "0.1em",
     textDecoration: "None"
 });
+
+export const todoDecorationType = window.createTextEditorDecorationType({
+    color: "#912044",
+    fontWeight: "bold",
+    letterSpacing: "0.12em"
+});
+
+export const doneDecorationType = window.createTextEditorDecorationType({
+    color: "green",
+    fontWeight: "bold",
+    letterSpacing: "0.12em"
+});

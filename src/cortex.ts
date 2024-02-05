@@ -1,11 +1,11 @@
-import { posix } from "path";
 import { workspace, Range, Uri, TextDocument, TextLine, Position } from "vscode";
-import { Page, logger, PageLink, LinkType, Block } from "./core";
+import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
 
 const _wikilinkRegex = /\[{2}([^\[]+)\]{2}/dg;
-const _hashTagsRegex = /(?:^|\s)#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
+const _hashTagRegex = /(?:^| )#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
+const _todoRegex = /^ *- (TODO|DONE)[ |$]/dg;
 
 export async function buildCortex(): Promise<Map<string, Page>> {
     
@@ -144,7 +144,7 @@ function analyzeCortexFile(
 
     // blocks
     let blockStartLine: number = 0;
-    let line = document.lineAt(0);
+    let line: TextLine;
 
     for (let i = 0; i < document.lineCount; i++) {
 
@@ -164,15 +164,15 @@ function analyzeCortexFile(
             );
 
             const blockMatchesAndLinkType: [RegExpMatchArray, LinkType][] = [];
+            const blockText = document.getText(blockRange);
 
             // find wikilinks
-            const blockText = document.getText(blockRange);
             const wikilinkMatches = blockText.matchAll(_wikilinkRegex);
 
             for (const match of wikilinkMatches) {
 
                 if (!match.indices) {
-                    return;
+                    continue;
                 }
 
                 match.indices[1][0] -= 2;
@@ -181,13 +181,13 @@ function analyzeCortexFile(
                 blockMatchesAndLinkType.push([match, LinkType.Wikilink]);
             }
 
-            const hashTagMatches = blockText.matchAll(_hashTagsRegex);
-
             // find hashtags
+            const hashTagMatches = blockText.matchAll(_hashTagRegex);
+
             for (const match of hashTagMatches) {
                 
                 if (!match.indices) {
-                    return;
+                    continue;
                 }
 
                 match.indices[1][0] -= 1;
@@ -215,7 +215,33 @@ function analyzeCortexFile(
                 targetPage.backlinks.push(pageLink);
             }
             
-            const block = new Block(blockRange, blockLinks);
+            // find TODOs
+            const blockTodoItems: TodoItem[] = [];
+            const todoMatches = blockText.matchAll(_todoRegex);
+
+            for (const match of todoMatches) {
+                
+                if (!match.indices) {
+                    continue;
+                }
+
+                logger.appendLine(`Found TODO item on page ${sourcePageName}`);
+
+                const indices = match.indices![1];
+                const startPos = document.positionAt(blockOffset + indices[0]);
+                const endPos = document.positionAt(blockOffset + indices[1]);
+                const range = new Range(startPos, endPos);
+                
+                const todoState = document.getText(range) === "TODO"
+                    ? TodoState.Todo
+                    : TodoState.Done;
+
+                const todoItem = new TodoItem(range, todoState);
+                
+                blockTodoItems.push(todoItem);
+            }
+
+            const block = new Block(blockRange, blockLinks, blockTodoItems);
 
             sourcePage.blocks.push(block);
 
