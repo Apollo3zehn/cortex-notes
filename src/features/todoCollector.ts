@@ -1,13 +1,16 @@
-import { Event, EventEmitter, ExtensionContext, MarkdownString, ProviderResult, ThemeIcon, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, env, window, workspace } from "vscode";
-import toml from "toml";
-import { changeExtension, fileExists, isSupportedFile } from "../utils";
 import { Octokit } from "octokit";
 import path from "path";
+import toml from "toml";
+import { Event, EventEmitter, ExtensionContext, MarkdownString, ProviderResult, ThemeIcon, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from "vscode";
+import { Block, Page, TodoItem } from "../core";
+import { getPageByUri } from "../cortex";
+import { changeExtension, fileExists, isSupportedFile } from "../utils";
 
 export async function activate(
-    context: ExtensionContext) {
+    context: ExtensionContext,
+    cortex: Map<string, Page>) {
     
-    const provider = new TodoTreeDataProvider(context);
+    const provider = new TodoTreeDataProvider(context, cortex);
 
     context.subscriptions.push(
         window.registerTreeDataProvider(
@@ -23,7 +26,7 @@ class IssueItem extends TreeItem {
     constructor(
         public readonly label: string,
         public readonly description: string,
-        public readonly url: string,
+        public readonly uri: Uri | undefined,
         public readonly tooltip: MarkdownString,
         public readonly collapsibleState: TreeItemCollapsibleState) {
         
@@ -33,10 +36,120 @@ class IssueItem extends TreeItem {
         this.tooltip = tooltip;
 
         this.command = {
-            title: "Open in browser",
+            title: "Open",
             command: "vscode.open",
-            arguments: [Uri.parse(url)]
+            arguments: uri === undefined ? undefined : [uri]
         };
+    }
+}
+
+class TodosItem extends CollapsibleTreeItem {
+
+    constructor(
+        readonly config: any,
+        readonly page: Page
+    ) {
+        super(
+            'TODO Items',
+            config.collapsed === 'true'
+                ? TreeItemCollapsibleState.Collapsed
+                : TreeItemCollapsibleState.Expanded
+        );
+
+        this.iconPath = new ThemeIcon("pass-filled");
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+
+        const consumedRawTodoItems = new Set<TodoItem>();
+        const todoItems: TreeItem[] = [];
+
+        /* TODO items in page */
+        for (const block of this.page.blocks) {
+
+            for (const link of block.links) {
+
+                for (const rawTodoItem of link.todoItems) {
+
+                    if (consumedRawTodoItems.has(rawTodoItem)) {
+                        continue;
+                    }
+
+                    const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "arrow-right");
+                    todoItems.push(todoItem);
+                    consumedRawTodoItems.add(rawTodoItem);
+                }
+            }
+
+            for (const rawTodoItem of block.unassociatedTodoItems) {
+
+                const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "dash");
+                todoItems.push(todoItem);
+            }
+        }
+
+        /* TODO items in backlinks */
+        for (const backlink of this.page.backlinks) {
+           
+            for (const rawTodoItem of backlink.todoItems) {
+
+                if (consumedRawTodoItems.has(rawTodoItem)) {
+                    continue;
+                }
+
+                const sourcePage = backlink.source;
+                const block = sourcePage.blocks.find(block => block.links.some(link => link === backlink));
+
+                if (!(sourcePage.uri && block)) {
+                    continue;
+                }
+
+                const todoItem = await this.createTodoItem(sourcePage.uri, rawTodoItem, block, "arrow-left");
+                
+                todoItems.push(todoItem);
+                consumedRawTodoItems.add(rawTodoItem);
+            }
+        }
+
+        if (todoItems.length === 0) {
+            todoItems.push(new IssueItem(
+                '',
+                'There are no TODO items in this page.',
+                undefined,
+                new MarkdownString(''),
+                TreeItemCollapsibleState.None));
+        }
+
+        return todoItems;
+    }
+
+    private async createTodoItem(
+        pageUri: Uri,
+        rawTodoItem: TodoItem,
+        sourceBlock: Block,
+        iconId: string) {
+        
+        const document = await workspace.openTextDocument(pageUri);
+        const line = rawTodoItem.range.start.line;
+
+        const label = document
+            .lineAt(line).text
+            .replace("- TODO ", '')
+            .replace("- DONE ", '')
+            .trim();
+
+        const tooltip = document.getText(sourceBlock.range);
+
+        const todoItem = new IssueItem(
+            label,
+            '',
+            pageUri,
+            new MarkdownString(tooltip),
+            TreeItemCollapsibleState.None);
+        
+        todoItem.iconPath = new ThemeIcon(iconId);
+        
+        return todoItem;
     }
 }
 
@@ -47,7 +160,9 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
     ) {
         super(
             `GitLab Issues: ${config.repository}`,
-            TreeItemCollapsibleState.Collapsed
+            config.collapsed === 'true'
+                ? TreeItemCollapsibleState.Collapsed
+                : TreeItemCollapsibleState.Expanded
         );
 
         this.iconPath = {
@@ -59,7 +174,7 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
     async getChildren(): Promise<TreeItem[]> {
 
         const projectId = encodeURIComponent(this.config.repository);
-        const url = `${this.config.base_url}/api/v4/projects/${projectId}/issues?assignee_username=${this.config.assignee_username}`;
+        const url = `${this.config.base_url}/api/v4/projects/${projectId}/issues?assignee_username=${this.config.assignee_username}&state=opened`;
 
         const response = await fetch(url, {
             headers: {
@@ -97,7 +212,9 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
     ) {
         super(
             `GitHub Issues: ${config.repository}`,
-            TreeItemCollapsibleState.Collapsed
+            config.collapsed === 'true'
+                ? TreeItemCollapsibleState.Collapsed
+                : TreeItemCollapsibleState.Expanded
         );
 
         this.iconPath = {
@@ -138,7 +255,7 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
                 return new IssueItem(
                     `#${issue.number} - ${issue.title}`,
                     description,
-                    issue.html_url,
+                    Uri.parse(issue.html_url),
                     new MarkdownString(issue.body ?? undefined),
                     TreeItemCollapsibleState.None);
             });
@@ -154,16 +271,26 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
     private _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
 
     constructor(
-        context: ExtensionContext
+        context: ExtensionContext,
+        readonly cortex: Map<string, Page>
     ) {
         this.onDidChangeTreeData = this._onDidChangeEmitter.event;
 
+        // update view when document is opened
         window.onDidChangeActiveTextEditor(editor => {
   
             if (!editor) {
                 return;
             }
     
+            this._onDidChangeEmitter.fire();
+          },
+          null,
+          context.subscriptions
+        );
+
+        // update view when document has changed
+        workspace.onDidChangeTextDocument(e => {
             this._onDidChangeEmitter.fire();
           },
           null,
@@ -196,56 +323,75 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                 return [];
             }
 
-            const todoFileUri = Uri.file(changeExtension(document.uri.fsPath, ".md", ".toml"));
+            const tomlFileUri = Uri.file(changeExtension(document.uri.fsPath, ".md", ".config.toml"));
 
             return new Promise(async resolve => {
 
-                if (await fileExists(todoFileUri)) {
+                try {
 
-                    const document = await workspace.openTextDocument(todoFileUri);
+                    let config: any;
 
-                    try {
-                    
-                        const config = toml.parse(document.getText()) as any;
-                        const treeItems: TreeItem[] = [];
-    
-                        if (config.todo) {
-    
-                            for (const todoConfig of config.todo) {
-    
-                                switch ((<any>todoConfig).type) {
-    
-                                    case "github-issues":
-                                        treeItems.push(new GitHubIssuesItem(todoConfig));
-                                        break;
-                                
-                                    case "gitlab-issues":
-                                        treeItems.push(new GitLabIssuesItem(todoConfig));
-                                        break;
+                    if (await fileExists(tomlFileUri)) {
+                        const tomlDocument = await workspace.openTextDocument(tomlFileUri);
+                        config = toml.parse(tomlDocument.getText()) as any;
+                    }
 
-                                    default:
-                                        break;
+                    else {
+                        config = {
+                            todo: [
+                                {
+                                    type: "todo-items"
                                 }
+                            ]
+                        };
+                    }
+
+                    const treeItems: TreeItem[] = [];
+        
+                    if (config.todo) {
+
+                        for (const todoConfig of config.todo) {
+
+                            switch ((<any>todoConfig).type) {
+
+                                case "github-issues":
+                                    treeItems.push(new GitHubIssuesItem(todoConfig));
+                                    break;
+                            
+                                case "gitlab-issues":
+                                    treeItems.push(new GitLabIssuesItem(todoConfig));
+                                    break;
+
+                                case "todo-items":
+                                    const page = getPageByUri(this.cortex, document.uri);
+
+                                    if (page) {
+                                        treeItems.push(new TodosItem(todoConfig, page));
+                                    }
+
+                                    break;
+                                
+                                default:
+                                    break;
                             }
                         }
-    
-                        resolve(treeItems);
-
-                    } catch (error) {
-
-                        let errorItem = new TreeItem(
-                            `Could not read .toml file: ${error}`
-                        );
-
-                        errorItem.iconPath = new ThemeIcon("error");
-
-                        resolve([
-                            errorItem
-                        ]);
                     }
-                }
 
-                resolve([]);
+                    resolve(treeItems);
+                }
+                
+                catch (error) {
+
+                    let errorItem = new TreeItem(
+                        `Could not read .config.toml file: ${error}`
+                    );
+
+                    errorItem.iconPath = new ThemeIcon("error");
+
+                    resolve([
+                        errorItem
+                    ]);
+                }
             });
         }
     }

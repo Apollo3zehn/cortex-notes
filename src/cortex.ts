@@ -2,10 +2,11 @@ import { workspace, Range, Uri, TextDocument, TextLine, Position } from "vscode"
 import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
+import { todo } from "node:test";
 
 const _wikilinkRegex = /\[{2}([^\[]+)\]{2}/dg;
 const _hashTagRegex = /(?:^| )#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
-const _todoRegex = /^ *- (TODO|DONE)[ |$]/dg;
+const _todoRegex = /^ *- (TODO|DONE)[ |$]/dgm;
 
 export async function buildCortex(): Promise<Map<string, Page>> {
     
@@ -46,7 +47,7 @@ export function updateCortexPage(cortex: Map<string, Page>, document: TextDocume
     const page = getOrCreatePage(cortex, pageName, document.uri);
     const clonedLinksMap = new Map<Block, PageLink[]>();
 
-    // clear links in all blocks of source page and backlinks of target page
+    // clear blocks of source page and backlinks of target page
     const processedTargetPages = new Set<Page>();
 
     for (const block of page.blocks) {
@@ -61,18 +62,15 @@ export function updateCortexPage(cortex: Map<string, Page>, document: TextDocume
                 continue;
             }
 
-            const backLinksOfTarget = targetPage.backlinks;
-            const backLinksToKeep = backLinksOfTarget.filter(current => current.source !== page);
+            const backlinksOfTarget = targetPage.backlinks;
+            const backlinksToKeep = backlinksOfTarget.filter(current => current.source !== page);
 
-            // something has changed
-            if (backLinksToKeep.length < backLinksOfTarget.length) {
-                backLinksOfTarget.length = 0;
-                backLinksOfTarget.push(...backLinksToKeep);
-            }
+            backlinksOfTarget.length = 0;
+            backlinksOfTarget.push(...backlinksToKeep);
 
             processedTargetPages.add(targetPage);
         }
-
+       
         page.blocks.length = 0;
     }
 
@@ -94,35 +92,25 @@ export function updateCortexPage(cortex: Map<string, Page>, document: TextDocume
 }
 
 export function deleteCortexPage(cortex: Map<string, Page>, page: Page) {
-
     logger.appendLine(`Delete page ${page.name}`);
-
-    // clear backlinks
-    for (const backlink of page.backlinks) {
-        
-        for (const block of backlink.target.blocks) {
-        
-            const linksOfTarget = block.links;
-            const linksToKeep = linksOfTarget.filter(current => current.source !== page);
-
-            // something has changed
-            if (linksToKeep.length < linksOfTarget.length) {
-                linksOfTarget.length = 0;
-                linksOfTarget.push(...linksToKeep);
-            }
-        }
-    }
-
-    // delete page
     cortex.delete(page.name);
 }
 
-export function deleteCortexPageByUri(cortex: Map<string, Page>, uri: Uri) {
+export function deleteCortexPageOrMakeTransientByUri(cortex: Map<string, Page>, uri: Uri) {
 
     let pageName = getPageName(uri);
     let page = getOrCreatePage(cortex, pageName, undefined);
 
-    deleteCortexPage(cortex, page);
+    /* this page has been forgotten, i.e. there is no picture on the ofrenda */
+    if (page.backlinks.length === 0) {
+        deleteCortexPage(cortex, page);
+    }
+
+    /* you may rise again from the dead one day */
+    else {
+        page.uri = undefined;
+        page.uriAsString = undefined;
+    }
 }
 
 function analyzeCortexFile(
@@ -144,7 +132,6 @@ function analyzeCortexFile(
 
     // blocks
     let blockStartLine: number = 0;
-    let line: TextLine;
 
     for (let i = 0; i < document.lineCount; i++) {
 
@@ -153,7 +140,7 @@ function analyzeCortexFile(
         // - a new block is about to start
         const isLastLine = i === document.lineCount - 1;
 
-        if (isLastLine || (line = document.lineAt(i + 1)).text.startsWith("-")) {
+        if (isLastLine || document.lineAt(i + 1).text.startsWith("-")) {
 
             const blockEndLine = i;
             const blockCharacterEnd = document.lineAt(blockEndLine).range.end.character;
@@ -198,6 +185,7 @@ function analyzeCortexFile(
             // process & store collected page links
             const blockOffset = document.offsetAt(blockRange.start);
             const blockLinks: PageLink[] = [];
+            const unassociatedTodoItems: TodoItem[] = [];
 
             for (const [match, linkType] of blockMatchesAndLinkType) {
 
@@ -209,14 +197,13 @@ function analyzeCortexFile(
                 const startPos = document.positionAt(blockOffset + indices[0]);
                 const endPos = document.positionAt(blockOffset + indices[1]);
                 const range = new Range(startPos, endPos);
-                const pageLink = new PageLink(sourcePage, targetPage, range, linkType);
+                const pageLink = new PageLink(sourcePage, targetPage, range, linkType, []);
 
                 blockLinks.push(pageLink);
                 targetPage.backlinks.push(pageLink);
             }
             
             // find TODOs
-            const blockTodoItems: TodoItem[] = [];
             const todoMatches = blockText.matchAll(_todoRegex);
 
             for (const match of todoMatches) {
@@ -238,10 +225,21 @@ function analyzeCortexFile(
 
                 const todoItem = new TodoItem(range, todoState);
                 
-                blockTodoItems.push(todoItem);
+                if (blockLinks.length > 0) {
+                    for (const link of blockLinks) {
+                        link.todoItems.push(todoItem);
+                    }
+                }
+
+                else {
+                    unassociatedTodoItems.push(todoItem);
+                }
             }
 
-            const block = new Block(blockRange, blockLinks, blockTodoItems);
+            const block = new Block(
+                blockRange,
+                blockLinks,
+                unassociatedTodoItems);
 
             sourcePage.blocks.push(block);
 

@@ -37,7 +37,10 @@ export async function activate(
             return;
         }
 
-        const todoItem = block.todoItems.find(todoItem => todoItem.range.start.line === cursorPosition.line);
+        const todoItem = block.links
+            .flatMap(link => link.todoItems)
+            .concat(block.unassociatedTodoItems)
+            .find(todoItem => todoItem.range.start.line === cursorPosition.line);
 
         if (todoItem) {
             

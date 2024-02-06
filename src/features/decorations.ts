@@ -89,7 +89,11 @@ export async function activate(
                 linkTitleRanges.push(linkTitleRange);
             }
 
-            for (const todoItem of block.todoItems) {
+            const allTodoItems = block.links
+                .flatMap(link => link.todoItems)
+                .concat(block.unassociatedTodoItems);
+
+            for (const todoItem of allTodoItems) {
 
                 switch (todoItem.state) {
 

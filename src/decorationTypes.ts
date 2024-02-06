@@ -21,7 +21,7 @@ export const pageLinkIndicatorDecorationType = window.createTextEditorDecoration
 });
 
 export const todoDecorationType = window.createTextEditorDecorationType({
-    color: "#912044",
+    color: "#d64004",
     fontWeight: "bold",
     letterSpacing: "0.12em"
 });

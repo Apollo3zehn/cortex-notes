@@ -59,7 +59,8 @@
     "keybindings": [
       {
           "command": "cortex-notes.toggle-todo-state",
-          "key": "ctrl+c ctrl+t"
+          "key": "ctrl+alt+s",
+          "when": "editorLangId == 'markdown'"
       }
   ]
   },

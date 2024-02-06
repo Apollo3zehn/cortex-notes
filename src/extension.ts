@@ -6,7 +6,7 @@ import { activate as activateBacklinks } from './features/backlinks';
 import { activate as activateTodo } from './features/todoCollector';
 import { activate as activateCommands } from './features/commands';
 import { logger } from './core';
-import { buildCortex, deleteCortexPageByUri } from './cortex';
+import { buildCortex, deleteCortexPageOrMakeTransientByUri } from './cortex';
 
 export async function activate(context: ExtensionContext) {
 
@@ -23,13 +23,13 @@ export async function activate(context: ExtensionContext) {
     activateLinks(context, cortex);
     activateCompletions(context, cortex);
     activateBacklinks(context, cortex);
-    activateTodo(context);
+    activateTodo(context, cortex);
     activateCommands(context, cortex);
 
     // update on delete
     const watcher = workspace.createFileSystemWatcher('**/*');
 
-    watcher.onDidDelete(uri => deleteCortexPageByUri(cortex, uri),
+    watcher.onDidDelete(uri => deleteCortexPageOrMakeTransientByUri(cortex, uri),
         null,
         context.subscriptions);
 }

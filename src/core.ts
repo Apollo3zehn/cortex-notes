@@ -10,7 +10,7 @@ export class Block {
     constructor(
         public readonly range: Range,
         public readonly links: PageLink[],
-        public readonly todoItems: TodoItem[]) {
+        public readonly unassociatedTodoItems: TodoItem[]) {
         //
     }
 }
@@ -31,7 +31,8 @@ export class PageLink {
         public readonly source: Page,
         public readonly target: Page,
         public readonly range: Range,
-        public readonly type: LinkType) {
+        public readonly type: LinkType,
+        public readonly todoItems: TodoItem[]) {
         //
     }
 }
