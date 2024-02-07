@@ -45,7 +45,9 @@ export enum LinkType {
 export class TodoItem {
     constructor(
         public readonly range: Range,
-        public readonly state: TodoState) {
+        public readonly state: TodoState,
+        public readonly date: Date | undefined,
+        public readonly dateRange: Range | undefined) {
         //
     }
 }

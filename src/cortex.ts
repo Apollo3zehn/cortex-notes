@@ -2,10 +2,10 @@ import { workspace, Range, Uri, TextDocument, TextLine, Position } from "vscode"
 import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
-import { todo } from "node:test";
 
 const _wikilinkRegex = /\[{2}([^\[]+)\]{2}/dg;
 const _hashTagRegex = /(?:^| )#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
+const _todoDateRegex = /<(\d{4}-\d{2}-\d{2})>/dg;
 const _todoRegex = /^ *- (TODO|DONE)[ |$]/dgm;
 
 export async function buildCortex(): Promise<Map<string, Page>> {
@@ -203,6 +203,29 @@ function analyzeCortexFile(
                 targetPage.backlinks.push(pageLink);
             }
             
+            // find TODO dates
+            const todoDateMatches = blockText.matchAll(_todoDateRegex);
+            const todoDates: Range[] = [];
+
+            for (const match of todoDateMatches) {
+
+                if (!match.indices) {
+                    continue;
+                }
+
+                logger.appendLine(`Found TODO date item on page ${sourcePageName}`);
+
+                match.indices[1][0] -= 1;
+                match.indices[1][1] += 1;
+
+                const indices = match.indices![1];
+                const startPos = document.positionAt(blockOffset + indices[0]);
+                const endPos = document.positionAt(blockOffset + indices[1]);
+                const range = new Range(startPos, endPos);
+
+                todoDates.push(range);
+            }
+
             // find TODOs
             const todoMatches = blockText.matchAll(_todoRegex);
 
@@ -223,7 +246,18 @@ function analyzeCortexFile(
                     ? TodoState.Todo
                     : TodoState.Done;
 
-                const todoItem = new TodoItem(range, todoState);
+                const dateRange = todoDates
+                    .find(todoDate => todoDate.start.line === range.start.line);
+                
+                const date = dateRange
+                    ? new Date(document.getText(dateRange))
+                    : undefined;
+                
+                const todoItem = new TodoItem(
+                    range,
+                    todoState,
+                    date,
+                    dateRange);
                 
                 if (blockLinks.length > 0) {
                     for (const link of blockLinks) {

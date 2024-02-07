@@ -1,6 +1,6 @@
 import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
 import { LinkType, Page, TodoState, logger } from "../core";
-import { doneDecorationType, pageLinkIndicatorDecorationType, pageLinkTitleDecorationType, todoDecorationType } from "../decorationTypes";
+import { doneDecorationType, pageLinkIndicatorDecorationType, pageLinkTitleDecorationType, todoDecorationType, transientPageLinkTitleDecorationType } from "../decorationTypes";
 import { isSupportedFile } from "../utils";
 import { getPageByUri, updateCortexPage } from "../cortex";
 
@@ -19,6 +19,7 @@ export async function activate(
 
         const linkIndicatorRanges: Range[] = [];
         const linkTitleRanges: Range[] = [];
+        const transientLinkTitleRanges: Range[] = [];
         const todoRanges: Range[] = [];
         const doneRanges: Range[] = [];
         const page = getPageByUri(cortex, editor.document.uri);
@@ -30,10 +31,6 @@ export async function activate(
         for (const block of page.blocks) {
 
             for (const link of block.links) {
-
-                if (!link.target.uri) {
-                    continue;
-                }
 
                 let linkIndicatorRange1: Range | undefined;
                 let linkIndicatorRange2: Range | undefined;
@@ -77,7 +74,7 @@ export async function activate(
                     default:
                         linkTitleRange = link.range;
                 }
-
+               
                 if (linkIndicatorRange1) {
                     linkIndicatorRanges.push(linkIndicatorRange1);
                 }
@@ -86,7 +83,11 @@ export async function activate(
                     linkIndicatorRanges.push(linkIndicatorRange2);
                 }
 
-                linkTitleRanges.push(linkTitleRange);
+                const actualLinkTitleRanges = link.target.uri
+                    ? linkTitleRanges
+                    : transientLinkTitleRanges;
+
+                actualLinkTitleRanges.push(linkTitleRange);
             }
 
             const allTodoItems = block.links
@@ -98,11 +99,23 @@ export async function activate(
                 switch (todoItem.state) {
 
                     case TodoState.Todo:
+
                         todoRanges.push(todoItem.range);
+
+                        if (todoItem.dateRange) {
+                            todoRanges.push(todoItem.dateRange);
+                        }
+
                         break;
                     
                     case TodoState.Done:
+
                         doneRanges.push(todoItem.range);
+
+                        if (todoItem.dateRange) {
+                            doneRanges.push(todoItem.dateRange);
+                        }
+
                         break;
                 }
             }
@@ -110,6 +123,7 @@ export async function activate(
   
         editor.setDecorations(pageLinkIndicatorDecorationType, linkIndicatorRanges);
         editor.setDecorations(pageLinkTitleDecorationType, linkTitleRanges);
+        editor.setDecorations(transientPageLinkTitleDecorationType, transientLinkTitleRanges);
         editor.setDecorations(todoDecorationType, todoRanges);
         editor.setDecorations(doneDecorationType, doneRanges);
     };

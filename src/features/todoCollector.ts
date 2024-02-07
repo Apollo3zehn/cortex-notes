@@ -160,7 +160,7 @@ class TodoItems extends CollapsibleTreeItem {
         if (openTodoItems.length === 0) {
             openTodoItems.push(new GitItem(
                 '',
-                'There are no open TODO items for this page',
+                'There are no TODO items for this page',
                 undefined,
                 new MarkdownString(''),
                 undefined,
@@ -170,7 +170,7 @@ class TodoItems extends CollapsibleTreeItem {
         if (doneTodoItems.length === 0) {
             doneTodoItems.push(new GitItem(
                 '',
-                'There are no done TODO items for this page',
+                'There are no DONE items for this page',
                 undefined,
                 new MarkdownString(''),
                 undefined,

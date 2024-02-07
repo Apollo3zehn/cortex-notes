@@ -61,8 +61,13 @@
           "command": "cortex-notes.toggle-todo-state",
           "key": "ctrl+alt+s",
           "when": "editorLangId == 'markdown'"
+      },
+      {
+        "command": "cortex-notes.insert-due-date",
+        "key": "ctrl+alt+d",
+        "when": "editorLangId == 'markdown'"
       }
-  ]
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",
