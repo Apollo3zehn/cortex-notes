@@ -2,7 +2,7 @@ import { Octokit } from "octokit";
 import path from "path";
 import toml from "toml";
 import { Event, EventEmitter, ExtensionContext, MarkdownString, ProviderResult, ThemeIcon, TreeDataProvider, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from "vscode";
-import { Block, Page, TodoItem } from "../core";
+import { Block, Page, TodoItem, TodoState } from "../core";
 import { getPageByUri } from "../cortex";
 import { changeExtension, fileExists, isSupportedFile } from "../utils";
 
@@ -22,18 +22,23 @@ abstract class CollapsibleTreeItem extends TreeItem {
     abstract getChildren(): Promise<TreeItem[]>;
 }
 
-class IssueItem extends TreeItem {
+class GitItem extends TreeItem {
     constructor(
-        public readonly label: string,
-        public readonly description: string,
-        public readonly uri: Uri | undefined,
-        public readonly tooltip: MarkdownString,
-        public readonly collapsibleState: TreeItemCollapsibleState) {
+        readonly label: string,
+        readonly description: string,
+        readonly uri: Uri | undefined,
+        readonly tooltip: MarkdownString,
+        readonly iconId: string | undefined,
+        readonly collapsibleState: TreeItemCollapsibleState) {
         
         super(label, collapsibleState);
 
         this.description = description;
         this.tooltip = tooltip;
+
+        if (iconId) {
+            this.iconPath = new ThemeIcon(iconId);
+        }
 
         this.command = {
             title: "Open",
@@ -43,26 +48,45 @@ class IssueItem extends TreeItem {
     }
 }
 
-class TodosItem extends CollapsibleTreeItem {
+class TodoItemsContainer extends CollapsibleTreeItem {
 
     constructor(
-        readonly config: any,
+        title: string,
+        readonly todoItems: TreeItem[],
+        collapsibleState: TreeItemCollapsibleState) {
+        
+        super(
+            title,
+            collapsibleState
+        );
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+        return Promise.resolve(this.todoItems);
+    }
+}
+
+class TodoItems extends CollapsibleTreeItem {
+
+    constructor(
+        config: any,
         readonly page: Page
     ) {
         super(
-            'TODO Items',
+            'TODO',
             config.collapsed === 'true'
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
         );
 
-        this.iconPath = new ThemeIcon("pass-filled");
+        this.iconPath = new ThemeIcon("issue-closed");
     }
 
     async getChildren(): Promise<TreeItem[]> {
 
         const consumedRawTodoItems = new Set<TodoItem>();
-        const todoItems: TreeItem[] = [];
+        const openTodoItems: TreeItem[] = [];
+        const doneTodoItems: TreeItem[] = [];
 
         /* TODO items in page */
         for (const block of this.page.blocks) {
@@ -76,7 +100,11 @@ class TodosItem extends CollapsibleTreeItem {
                     }
 
                     const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "arrow-right");
-                    todoItems.push(todoItem);
+
+                    rawTodoItem.state === TodoState.Todo
+                        ? openTodoItems.push(todoItem)
+                        : doneTodoItems.push(todoItem);
+
                     consumedRawTodoItems.add(rawTodoItem);
                 }
             }
@@ -84,7 +112,10 @@ class TodosItem extends CollapsibleTreeItem {
             for (const rawTodoItem of block.unassociatedTodoItems) {
 
                 const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "dash");
-                todoItems.push(todoItem);
+                
+                rawTodoItem.state === TodoState.Todo
+                    ? openTodoItems.push(todoItem)
+                    : doneTodoItems.push(todoItem);
             }
         }
 
@@ -106,21 +137,58 @@ class TodosItem extends CollapsibleTreeItem {
 
                 const todoItem = await this.createTodoItem(sourcePage.uri, rawTodoItem, block, "arrow-left");
                 
-                todoItems.push(todoItem);
+                rawTodoItem.state === TodoState.Todo
+                    ? openTodoItems.push(todoItem)
+                    : doneTodoItems.push(todoItem);
+                
                 consumedRawTodoItems.add(rawTodoItem);
             }
         }
 
-        if (todoItems.length === 0) {
-            todoItems.push(new IssueItem(
+        if (openTodoItems.length === 0 && doneTodoItems.length === 0) {
+            return [
+                new GitItem(
+                    '',
+                    'There are no TODO items for this page',
+                    undefined,
+                    new MarkdownString(''),
+                    undefined,
+                    TreeItemCollapsibleState.None)
+            ];
+        }
+
+        if (openTodoItems.length === 0) {
+            openTodoItems.push(new GitItem(
                 '',
-                'There are no TODO items in this page.',
+                'There are no open TODO items for this page',
                 undefined,
                 new MarkdownString(''),
+                undefined,
                 TreeItemCollapsibleState.None));
         }
 
-        return todoItems;
+        if (doneTodoItems.length === 0) {
+            doneTodoItems.push(new GitItem(
+                '',
+                'There are no done TODO items for this page',
+                undefined,
+                new MarkdownString(''),
+                undefined,
+                TreeItemCollapsibleState.None));
+        }
+
+        return [
+            new TodoItemsContainer(
+                "Open",
+                openTodoItems,
+                TreeItemCollapsibleState.Expanded
+            ),
+            new TodoItemsContainer(
+                "Done",
+                doneTodoItems,
+                TreeItemCollapsibleState.Collapsed
+            )
+        ];
     }
 
     private async createTodoItem(
@@ -140,16 +208,79 @@ class TodosItem extends CollapsibleTreeItem {
 
         const tooltip = document.getText(sourceBlock.range);
 
-        const todoItem = new IssueItem(
+        const todoItem = new GitItem(
             label,
             '',
             pageUri,
             new MarkdownString(tooltip),
+            undefined,
             TreeItemCollapsibleState.None);
         
         todoItem.iconPath = new ThemeIcon(iconId);
         
         return todoItem;
+    }
+}
+
+class GiteaIssuesItem extends CollapsibleTreeItem {
+
+    constructor(
+        public readonly config: any,
+    ) {
+        super(
+            `Gitea Issues: ${config.repository}`,
+            config.collapsed === 'true'
+                ? TreeItemCollapsibleState.Collapsed
+                : TreeItemCollapsibleState.Expanded
+        );
+
+        this.iconPath = {
+            light: path.join(__filename, '..', '..', '..', 'resources', 'light', 'gitea.svg'),
+            dark: path.join(__filename, '..', '..', '..', 'resources', 'dark', 'gitea.svg')
+        };
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+
+        const owner = encodeURIComponent(this.config.owner);
+        const repository = encodeURIComponent(this.config.repository);
+        const url = `${this.config.base_url}/api/v1/repos/${owner}/${repository}/issues?state=open`;
+
+        const response = await fetch(url, {
+            headers: {
+                Authorization: `token ${this.config.api_key}`
+            }
+        });
+
+        const issues = (await response.json()) as any[];
+        
+        const todoItems = issues
+            .map(issue => {
+
+                const labels = (<string[]>issue.labels);
+
+                const description = labels.length === 0
+                    ? ''
+                    : labels.join(' | ');
+              
+                return new GitItem(
+                    issue.title,
+                    `#${issue.number} ${description === '' ? '' : "| " + description}`,
+                    issue.html_url,
+                    new MarkdownString(issue.body),
+                    issue.pull_request ? 'git-pull-request' : 'circle-outline',
+                    TreeItemCollapsibleState.None);
+                
+                return new GitItem(
+                    issue.title,
+                    `#${issue.number} ${description === '' ? '' : "| " + description}`,
+                    Uri.parse(issue.html_url),
+                    new MarkdownString(issue.body ?? undefined),
+                    issue.pull_request ? 'git-pull-request' : 'circle-outline',
+                    TreeItemCollapsibleState.None);
+            });
+        
+        return todoItems;
     }
 }
 
@@ -173,8 +304,8 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
 
     async getChildren(): Promise<TreeItem[]> {
 
-        const projectId = encodeURIComponent(this.config.repository);
-        const url = `${this.config.base_url}/api/v4/projects/${projectId}/issues?assignee_username=${this.config.assignee_username}&state=opened`;
+        const repository = encodeURIComponent(this.config.repository);
+        const url = `${this.config.base_url}/api/v4/projects/${repository}/issues?assignee_username=${this.config.assignee_username}&state=opened`;
 
         const response = await fetch(url, {
             headers: {
@@ -191,13 +322,14 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
 
                 const description = labels.length === 0
                     ? ''
-                    : labels.join(' | ');
+                    : labels.map(label => label).join(' | ');
               
-                return new IssueItem(
-                    `#${issue.iid} - ${issue.title}`,
-                    description,
+                return new GitItem(
+                    issue.title,
+                    `#${issue.iid} ${description === '' ? '' : "| " + description}`,
                     issue.web_url,
                     new MarkdownString(issue.description),
+                    'circle-outline',
                     TreeItemCollapsibleState.None);
             });
         
@@ -205,13 +337,66 @@ class GitLabIssuesItem extends CollapsibleTreeItem {
     }
 }
 
-class GitHubIssuesItem extends CollapsibleTreeItem {
+class GitLabMergeRequestsItem extends CollapsibleTreeItem {
 
     constructor(
         public readonly config: any,
     ) {
         super(
-            `GitHub Issues: ${config.repository}`,
+            `GitLab MRs: ${config.repository}`,
+            config.collapsed === 'true'
+                ? TreeItemCollapsibleState.Collapsed
+                : TreeItemCollapsibleState.Expanded
+        );
+
+        this.iconPath = {
+            light: path.join(__filename, '..', '..', '..', 'resources', 'light', 'gitlab.svg'),
+            dark: path.join(__filename, '..', '..', '..', 'resources', 'dark', 'gitlab.svg')
+        };
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+
+        const repository = encodeURIComponent(this.config.repository);
+        const url = `${this.config.base_url}/api/v4/projects/${repository}/merge_requests?author_username=${this.config.author_username}&state=opened`;
+
+        const response = await fetch(url, {
+            headers: {
+                Authorization: `Bearer ${this.config.api_key}`
+            }
+        });
+
+        const mergeRequests = (await response.json()) as any[];
+        
+        const todoItems = mergeRequests
+            .map(issue => {
+
+                const labels = (<string[]>issue.labels);
+
+                const description = labels.length === 0
+                    ? ''
+                    : labels.map(label => label).join(' | ');
+              
+                return new GitItem(
+                    issue.title,
+                    `!${issue.iid} ${description === '' ? '' : "| " + description}`,
+                    issue.web_url,
+                    new MarkdownString(issue.description),
+                    'git-pull-request',
+                    TreeItemCollapsibleState.None);
+            });
+        
+        return todoItems;
+    }
+}
+
+class GitHubItem extends CollapsibleTreeItem {
+
+    constructor(
+        public readonly config: any,
+    ) {
+        super(
+            `GitHub: ${config.repository}`,
             config.collapsed === 'true'
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
@@ -235,7 +420,6 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
         });
     
         const todoItems = issues.data
-            .filter(issue => !issue.pull_request)
             .map(issue => {
 
                 const description = issue.labels.length === 0
@@ -252,11 +436,12 @@ class GitHubIssuesItem extends CollapsibleTreeItem {
                         
                     }).join(' | ');
 
-                return new IssueItem(
-                    `#${issue.number} - ${issue.title}`,
-                    description,
+                return new GitItem(
+                    issue.title,
+                    `#${issue.number} ${description === '' ? '' : "| " + description}`,
                     Uri.parse(issue.html_url),
                     new MarkdownString(issue.body ?? undefined),
+                    issue.pull_request ? 'git-pull-request' : 'circle-outline',
                     TreeItemCollapsibleState.None);
             });
         
@@ -354,19 +539,27 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
                             switch ((<any>todoConfig).type) {
 
-                                case "github-issues":
-                                    treeItems.push(new GitHubIssuesItem(todoConfig));
+                                case "github":
+                                    treeItems.push(new GitHubItem(todoConfig));
                                     break;
                             
                                 case "gitlab-issues":
                                     treeItems.push(new GitLabIssuesItem(todoConfig));
                                     break;
-
+                                
+                                case "gitlab-merge-requests":
+                                    treeItems.push(new GitLabMergeRequestsItem(todoConfig));
+                                    break;
+                                
+                                case "gitea-issues":
+                                    treeItems.push(new GiteaIssuesItem(todoConfig));
+                                    break;
+    
                                 case "todo-items":
                                     const page = getPageByUri(this.cortex, document.uri);
 
                                     if (page) {
-                                        treeItems.push(new TodosItem(todoConfig, page));
+                                        treeItems.push(new TodoItems(todoConfig, page));
                                     }
 
                                     break;

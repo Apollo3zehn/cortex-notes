@@ -19,9 +19,12 @@
 - toml json schema
 - todo view: 
     - paged gitlab/github issues
-    - list issues and pull/merge requests separately (or mark them with an icon)
 - virtual workspaces: https://code.visualstudio.com/api/extension-guides/virtual-workspaces
 - TODO/DONE items should also be highlighted and link decorated in backlinks view
 - TODO view: Show indicator about TODO state (TODO/DONE)
 - show username of person who opened gitlab / github issue
+    - in general: unify all filter criteria for issues / PRs / MRs for all providers
 - embed config.toml into .md file into code fence area?
+- git: display milestones
+- citations (>) are rendered badly
+- log done todos in extra file to get overview about what was done last week
