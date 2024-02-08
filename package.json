@@ -58,9 +58,9 @@
     ],
     "keybindings": [
       {
-          "command": "cortex-notes.toggle-todo-state",
-          "key": "ctrl+alt+s",
-          "when": "editorLangId == 'markdown'"
+        "command": "cortex-notes.toggle-todo-state",
+        "key": "ctrl+alt+s",
+        "when": "editorLangId == 'markdown'"
       },
       {
         "command": "cortex-notes.insert-due-date",
@@ -89,6 +89,8 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@octokit/openapi-types": "^19.1.0",
+    "@octokit/types": "^12.4.0",
     "octokit": "^3.1.2",
     "toml": "^3.0.0"
   }
