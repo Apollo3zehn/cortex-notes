@@ -56,6 +56,7 @@ export class GiteaItem extends CollapsibleTreeItem {
                     issue.title,
                     `#${issue.number} ${description === '' ? '' : "| " + description}`,
                     issue.html_url,
+                    undefined,
                     new MarkdownString(issue.body),
                     issue.pull_request ? 'git-pull-request' : 'circle-outline',
                     TreeItemCollapsibleState.None);

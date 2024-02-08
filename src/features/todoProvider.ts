@@ -1,5 +1,5 @@
 import toml from "toml";
-import { Event, EventEmitter, ExtensionContext, ProviderResult, ThemeIcon, TreeDataProvider, TreeItem, Uri, window, workspace } from "vscode";
+import { CancellationToken, Event, EventEmitter, ExtensionContext, FileDecoration, FileDecorationProvider, ProviderResult, ThemeColor, ThemeIcon, TreeDataProvider, TreeItem, Uri, window, workspace } from "vscode";
 import { Page } from "../core";
 import { getPageByUri } from "../cortex";
 import { changeExtension, fileExists, isSupportedFile } from "../utils";
@@ -18,7 +18,22 @@ export async function activate(
     context.subscriptions.push(
         window.registerTreeDataProvider(
             'cortex-notes.todos',
-            provider));
+            provider),
+        window.registerFileDecorationProvider(new TodoDecorationProvider()));
+}
+
+class TodoDecorationProvider implements FileDecorationProvider {
+    provideFileDecoration(uri: Uri, token: CancellationToken): ProviderResult<FileDecoration> {
+        
+        // https://code.visualstudio.com/api/references/theme-color#lists-and-trees
+        if (uri.scheme === 'cortex-notes') {
+            return {
+                color: new ThemeColor(uri.authority)
+            };
+        }
+
+        return undefined;
+    }
 }
 
 class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
@@ -40,7 +55,8 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
             if (!editor) {
                 return;
             }
-    
+
+            this._children = undefined;
             this._onDidChangeEmitter.fire();
           },
           null,
@@ -49,6 +65,18 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
         // update view when document has changed
         workspace.onDidChangeTextDocument(e => {
+
+            if (this._children) {
+
+                const todoItemsSet = this._children
+                    .filter(child => child instanceof TodoItems);
+
+                for (const todoItems of todoItemsSet) {
+                    /* alternative to cast: https://stackoverflow.com/a/54318054 */
+                    (<TodoItems>todoItems).resetChildren();
+                }
+            }
+
             this._onDidChangeEmitter.fire();
           },
           null,
@@ -76,15 +104,6 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
         else {
 
             if (this._children) {
-
-                const todoItemsSet = this._children
-                    .filter(child => child instanceof TodoItems);
-
-                for (const todoItems of todoItemsSet) {
-                    /* alternative to cast: https://stackoverflow.com/a/54318054 */
-                    (<TodoItems>todoItems).resetChildren();
-                }
-
                 return this._children;
             }
 

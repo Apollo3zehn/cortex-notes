@@ -55,6 +55,7 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
                     issue.title,
                     `#${issue.iid} ${description === '' ? '' : "| " + description}`,
                     issue.web_url,
+                    undefined,
                     new MarkdownString(issue.description),
                     'circle-outline',
                     TreeItemCollapsibleState.None);
@@ -121,6 +122,7 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
                     issue.title,
                     `!${issue.iid} ${description === '' ? '' : "| " + description}`,
                     issue.web_url,
+                    undefined,
                     new MarkdownString(issue.description),
                     'git-pull-request',
                     TreeItemCollapsibleState.None);

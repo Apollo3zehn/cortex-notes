@@ -1,6 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState, ThemeIcon, MarkdownString, Uri, workspace } from "vscode";
 import { Page, TodoItem, TodoState, Block } from "../../core";
-import { CollapsibleTreeItem, GitItem } from "../todoTypes";
+import { CollapsibleTreeItem, GitItem as TodoTreeItem } from "../todoTypes";
 
 class TodoItemsContainer extends CollapsibleTreeItem {
 
@@ -101,9 +101,10 @@ export class TodoItems extends CollapsibleTreeItem {
 
         if (openTodoItems.length === 0 && doneTodoItems.length === 0) {
             return [
-                new GitItem(
+                new TodoTreeItem(
                     '',
                     'There are no TODO items for this page',
+                    undefined,
                     undefined,
                     new MarkdownString(''),
                     undefined,
@@ -112,9 +113,10 @@ export class TodoItems extends CollapsibleTreeItem {
         }
 
         if (openTodoItems.length === 0) {
-            openTodoItems.push(new GitItem(
+            openTodoItems.push(new TodoTreeItem(
                 '',
                 'There are no TODO items for this page',
+                undefined,
                 undefined,
                 new MarkdownString(''),
                 undefined,
@@ -122,9 +124,10 @@ export class TodoItems extends CollapsibleTreeItem {
         }
 
         if (doneTodoItems.length === 0) {
-            doneTodoItems.push(new GitItem(
+            doneTodoItems.push(new TodoTreeItem(
                 '',
                 'There are no DONE items for this page',
+                undefined,
                 undefined,
                 new MarkdownString(''),
                 undefined,
@@ -145,7 +148,7 @@ export class TodoItems extends CollapsibleTreeItem {
         ];
     }
 
-    private async createTodoItem(
+    async createTodoItem(
         pageUri: Uri,
         rawTodoItem: TodoItem,
         sourceBlock: Block,
@@ -162,10 +165,15 @@ export class TodoItems extends CollapsibleTreeItem {
 
         const tooltip = document.getText(sourceBlock.range);
 
-        const todoItem = new GitItem(
+        const decorationUri = rawTodoItem.state === TodoState.Todo && rawTodoItem.date
+            ? this.getDecorationUri(rawTodoItem.date)
+            : undefined;
+
+        const todoItem = new TodoTreeItem(
             label,
             '',
             pageUri,
+            decorationUri,
             new MarkdownString(tooltip),
             undefined,
             TreeItemCollapsibleState.None);
@@ -173,5 +181,29 @@ export class TodoItems extends CollapsibleTreeItem {
         todoItem.iconPath = new ThemeIcon(iconId);
         
         return todoItem;
+    }
+
+    // https://code.visualstudio.com/api/references/theme-color#lists-and-trees
+    static readonly _warning = Uri.parse("cortex-notes://list.warningForeground");
+    static readonly _error = Uri.parse("cortex-notes://list.errorForeground");
+
+    getDecorationUri(date: Date): Uri | undefined {
+
+        const now = new Date();
+
+        let timeUntilOverdue = date.getTime() - now.getTime();
+        let daysUntilOverView = timeUntilOverdue / (24 * 3600 * 1000);
+
+        if (daysUntilOverView <= 0) {
+            return TodoItems._error;
+        }
+
+        else if (daysUntilOverView <= 7) {
+            return TodoItems._warning;
+        }
+        
+        else {
+            return undefined;
+        }
     }
 }

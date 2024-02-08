@@ -95,6 +95,7 @@ export class GitHubItem extends CollapsibleTreeItem {
                     issue.title,
                     `#${issue.number} ${description === '' ? '' : "| " + description}`,
                     Uri.parse(issue.html_url),
+                    undefined,
                     new MarkdownString(issue.body ?? undefined),
                     issue.pull_request ? 'git-pull-request' : 'circle-outline',
                     TreeItemCollapsibleState.None);

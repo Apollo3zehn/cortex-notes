@@ -32,14 +32,16 @@ export class GitItem extends TreeItem {
         readonly label: string,
         readonly description: string,
         readonly uri: Uri | undefined,
+        readonly decorationUri: Uri | undefined,
         readonly tooltip: MarkdownString,
         readonly iconId: string | undefined,
         readonly collapsibleState: TreeItemCollapsibleState) {
         
         super(label, collapsibleState);
-
+        
         this.description = description;
         this.tooltip = tooltip;
+        this.resourceUri = decorationUri;
 
         if (iconId) {
             this.iconPath = new ThemeIcon(iconId);
