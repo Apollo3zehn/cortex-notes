@@ -15,7 +15,7 @@ class TodoItemsContainer extends CollapsibleTreeItem {
         );
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
         return Promise.resolve(this.todoItems);
     }
 }
@@ -36,7 +36,7 @@ export class TodoItems extends CollapsibleTreeItem {
         this.iconPath = new ThemeIcon("issue-closed");
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
 
         const consumedRawTodoItems = new Set<TodoItem>();
         const openTodoItems: TreeItem[] = [];
@@ -138,7 +138,7 @@ export class TodoItems extends CollapsibleTreeItem {
                 TreeItemCollapsibleState.Expanded
             ),
             new TodoItemsContainer(
-                "Done",
+                'DONE',
                 doneTodoItems,
                 TreeItemCollapsibleState.Collapsed
             )

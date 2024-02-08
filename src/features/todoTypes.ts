@@ -1,7 +1,30 @@
-import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, TreeItemLabel, Uri } from "vscode";
 
 export abstract class CollapsibleTreeItem extends TreeItem {
-    abstract getChildren(): Promise<TreeItem[]>;
+
+    _children: TreeItem[] | undefined;
+
+    constructor(
+        readonly label: string | TreeItemLabel,
+        readonly collapsibleState: TreeItemCollapsibleState | undefined
+    ) {
+        super(label, collapsibleState);
+    }
+
+    async getChildren(): Promise<TreeItem[]> {
+
+        if (!this._children) {
+            this._children = await this.internalGetChildren();
+        }
+
+        return this._children;
+    }
+
+    public resetChildren() {
+        this._children = undefined;
+    }
+
+    abstract internalGetChildren(): Promise<TreeItem[]>;
 }
 
 export class GitItem extends TreeItem {

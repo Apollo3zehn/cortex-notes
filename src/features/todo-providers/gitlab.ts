@@ -28,7 +28,7 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
         }
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
 
         const page = this.page ? this.page : 1;
         const repository = encodeURIComponent(this.config.repository);
@@ -94,7 +94,7 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
         }
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
 
         const page = this.page ? this.page : 1;
         const repository = encodeURIComponent(this.config.repository);

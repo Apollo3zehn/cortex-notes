@@ -28,7 +28,7 @@ export class GiteaItem extends CollapsibleTreeItem {
         }
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
 
         const page = this.page ? this.page : 1;
         const owner = encodeURIComponent(this.config.owner);

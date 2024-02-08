@@ -242,7 +242,7 @@ function analyzeCortexFile(
                 const endPos = document.positionAt(blockOffset + indices[1]);
                 const range = new Range(startPos, endPos);
                 
-                const todoState = document.getText(range) === "TODO"
+                const todoState = document.getText(range) === 'TODO'
                     ? TodoState.Todo
                     : TodoState.Done;
 

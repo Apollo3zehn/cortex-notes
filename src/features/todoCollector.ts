@@ -25,7 +25,8 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
     
     onDidChangeTreeData?: Event<void | TreeItem | TreeItem[] | null | undefined> | undefined;
 
-    private _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
+    _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
+    _children: TreeItem[] | undefined;
 
     constructor(
         context: ExtensionContext,
@@ -74,6 +75,19 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
         else {
 
+            if (this._children) {
+
+                const todoItemsSet = this._children
+                    .filter(child => child instanceof TodoItems);
+
+                for (const todoItems of todoItemsSet) {
+                    /* alternative to cast: https://stackoverflow.com/a/54318054 */
+                    (<TodoItems>todoItems).resetChildren();
+                }
+
+                return this._children;
+            }
+
             const document = window.activeTextEditor?.document;
 
             if (!document || !isSupportedFile(document)) {
@@ -103,7 +117,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                         };
                     }
 
-                    const treeItems: TreeItem[] = [];
+                    const children: TreeItem[] = [];
         
                     if (config.todo) {
 
@@ -112,26 +126,26 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                             switch ((<any>todoConfig).type) {
 
                                 case "github":
-                                    treeItems.push(new GitHubItem(todoConfig));
+                                    children.push(new GitHubItem(todoConfig));
                                     break;
                             
                                 case "gitlab-issues":
-                                    treeItems.push(new GitLabIssuesItem(todoConfig));
+                                    children.push(new GitLabIssuesItem(todoConfig));
                                     break;
                                 
                                 case "gitlab-merge-requests":
-                                    treeItems.push(new GitLabMergeRequestsItem(todoConfig));
+                                    children.push(new GitLabMergeRequestsItem(todoConfig));
                                     break;
                                 
                                 case "gitea-issues":
-                                    treeItems.push(new GiteaItem(todoConfig));
+                                    children.push(new GiteaItem(todoConfig));
                                     break;
     
                                 case "todo-items":
                                     const page = getPageByUri(this.cortex, document.uri);
 
                                     if (page) {
-                                        treeItems.push(new TodoItems(todoConfig, page));
+                                        children.push(new TodoItems(todoConfig, page));
                                     }
 
                                     break;
@@ -142,7 +156,9 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                         }
                     }
 
-                    resolve(treeItems);
+                    this._children = children;
+
+                    resolve(children);
                 }
                 
                 catch (error) {

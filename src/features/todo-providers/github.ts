@@ -1,9 +1,9 @@
+import { components } from "@octokit/openapi-types";
+import { OctokitResponse } from "@octokit/types";
 import { Octokit } from "octokit";
 import path from "path";
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
 import { CollapsibleTreeItem, GitItem } from "../todoTypes";
-import { OctokitResponse } from "@octokit/types";
-import { components } from "@octokit/openapi-types";
 
 type IssueItem = components["schemas"]["issue"];
 
@@ -64,7 +64,7 @@ export class GitHubItem extends CollapsibleTreeItem {
         }
     }
 
-    async getChildren(): Promise<TreeItem[]> {
+    async internalGetChildren(): Promise<TreeItem[]> {
         
         const iteratorResult = await this.issuesIterator!.next();
 

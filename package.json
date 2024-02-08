@@ -63,7 +63,7 @@
         "when": "editorLangId == 'markdown'"
       },
       {
-        "command": "cortex-notes.insert-due-date",
+        "command": "cortex-notes.toggle-todo-date",
         "key": "ctrl+alt+d",
         "when": "editorLangId == 'markdown'"
       }
