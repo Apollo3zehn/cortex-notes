@@ -1,8 +1,8 @@
 import { ExtensionContext, Range, TextEditor, window, workspace } from "vscode";
 import { LinkType, Page, TodoState, logger } from "../core";
-import { doneDecorationType, pageLinkIndicatorDecorationType, pageLinkTitleDecorationType, todoDecorationType, transientPageLinkTitleDecorationType } from "../decorationTypes";
-import { isSupportedFile } from "../utils";
 import { getPageByUri, updateCortexPage } from "../cortex";
+import { doneDayOfWeekDecorationTypes, doneDecorationType, pageLinkIndicatorDecorationType, pageLinkTitleDecorationType, todoDayOfWeekDecorationTypes, todoDecorationType, transientPageLinkTitleDecorationType } from "../decorationTypes";
+import { isSupportedFile } from "../utils";
 
 export async function activate(
     context: ExtensionContext,
@@ -22,6 +22,27 @@ export async function activate(
         const transientLinkTitleRanges: Range[] = [];
         const todoRanges: Range[] = [];
         const doneRanges: Range[] = [];
+
+        const todoDayOfWeekRangesArray: Range[][] = [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+        ];
+
+        const doneDayOfWeekRangesArray: Range[][] = [
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+        ];
+
         const page = getPageByUri(cortex, editor.document.uri);
 
         if (!page) {
@@ -102,8 +123,14 @@ export async function activate(
 
                         todoRanges.push(todoItem.range);
 
-                        if (todoItem.dateRange) {
-                            todoRanges.push(todoItem.dateRange);
+                        if (todoItem.date && todoItem.dateRange) {
+
+                            const range = todoItem.dateRange;
+                            const range1 = range.with(undefined, range.end.with(undefined, range.end.character - 1));
+                            const range2 = range.with(range.end.with(undefined, range.end.character - 1), undefined);
+
+                            todoRanges.push(range1);
+                            todoDayOfWeekRangesArray[todoItem.date.getDay()].push(range2);
                         }
 
                         break;
@@ -112,8 +139,14 @@ export async function activate(
 
                         doneRanges.push(todoItem.range);
 
-                        if (todoItem.dateRange) {
-                            doneRanges.push(todoItem.dateRange);
+                        if (todoItem.date && todoItem.dateRange) {
+
+                            const range = todoItem.dateRange;
+                            const range1 = range.with(undefined, range.end.with(undefined, range.end.character - 1));
+                            const range2 = range.with(range.end.with(undefined, range.end.character - 1), undefined);
+
+                            doneRanges.push(range1);
+                            doneDayOfWeekRangesArray[todoItem.date.getDay()].push(range2);
                         }
 
                         break;
@@ -126,6 +159,14 @@ export async function activate(
         editor.setDecorations(transientPageLinkTitleDecorationType, transientLinkTitleRanges);
         editor.setDecorations(todoDecorationType, todoRanges);
         editor.setDecorations(doneDecorationType, doneRanges);
+        
+        for (let i = 0; i < todoDayOfWeekRangesArray.length; i++) {
+            editor.setDecorations(todoDayOfWeekDecorationTypes[i], todoDayOfWeekRangesArray[i]);
+        }
+
+        for (let i = 0; i < doneDayOfWeekRangesArray.length; i++) {
+            editor.setDecorations(doneDayOfWeekDecorationTypes[i], doneDayOfWeekRangesArray[i]);
+        }
     };
     
     // set decorations when document is opened

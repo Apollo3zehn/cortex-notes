@@ -1,4 +1,4 @@
-import { ExtensionContext, Position, Range, TextEdit, TextEditor, commands, window } from "vscode";
+import { ExtensionContext, Position, Range, TextEditor, commands, window } from "vscode";
 import { Page, TodoItem, TodoState } from "../core";
 import { getPageName, isSupportedFile } from "../utils";
 
@@ -34,7 +34,7 @@ function toggleTodoState(cortex: Map<string, Page>) {
             case TodoState.Todo:
 
                 editor.edit(editBuilder => {
-                    editBuilder.replace(todoItem.range, 'DONE');
+                    editBuilder.replace(todoItem.range, 'Done');
                 });
                 
                 /* must be extra '' to void "overlapping ranges are not allowed" error */

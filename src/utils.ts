@@ -7,6 +7,7 @@ export function getPageName(uri: Uri): string {
 }
 
 // TODO replace by own implementation (credits go to Foam)
+// maybe here is something useful? https://github.com/microsoft/vscode-extension-samples/blob/main/fsconsumer-sample/src/extension.ts
 export function changeExtension(
     path: string,
     from: string,
