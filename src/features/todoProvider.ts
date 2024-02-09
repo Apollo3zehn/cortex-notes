@@ -1,13 +1,13 @@
-import toml from "toml";
 import { CancellationToken, Event, EventEmitter, ExtensionContext, FileDecoration, FileDecorationProvider, ProviderResult, ThemeColor, ThemeIcon, TreeDataProvider, TreeItem, Uri, window, workspace } from "vscode";
 import { Page } from "../core";
 import { getPageByUri } from "../cortex";
-import { changeExtension, fileExists, isSupportedFile } from "../utils";
+import { isSupportedFile } from "../utils";
 import { GiteaItem } from "./todo-providers/gitea";
 import { GitHubItem } from "./todo-providers/github";
 import { GitLabIssuesItem, GitLabMergeRequestsItem } from "./todo-providers/gitlab";
 import { TodoItems } from "./todo-providers/todo";
 import { CollapsibleTreeItem } from "./todoTypes";
+import { getPageTodoConfig as getTodoConfig } from "../todoConfig";
 
 export async function activate(
     context: ExtensionContext,
@@ -48,39 +48,39 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
         readonly cortex: Map<string, Page>
     ) {
         this.onDidChangeTreeData = this._onDidChangeEmitter.event;
-
+      
         // update view when document is opened
         window.onDidChangeActiveTextEditor(editor => {
   
-            if (!editor) {
-                return;
-            }
+                if (!editor) {
+                    return;
+                }
 
-            this._children = undefined;
-            this._onDidChangeEmitter.fire();
-          },
-          null,
-          context.subscriptions
+                this._children = undefined;
+                this._onDidChangeEmitter.fire();
+            },
+            null,
+            context.subscriptions
         );
 
         // update view when document has changed
         workspace.onDidChangeTextDocument(e => {
 
-            if (this._children) {
+                if (this._children) {
 
-                const todoItemsSet = this._children
-                    .filter(child => child instanceof TodoItems);
+                    const todoItemsSet = this._children
+                        .filter(child => child instanceof TodoItems);
 
-                for (const todoItems of todoItemsSet) {
-                    /* alternative to cast: https://stackoverflow.com/a/54318054 */
-                    (<TodoItems>todoItems).resetChildren();
+                    for (const todoItems of todoItemsSet) {
+                        /* alternative to cast: https://stackoverflow.com/a/54318054 */
+                        (<TodoItems>todoItems).resetChildren();
+                    }
                 }
-            }
 
-            this._onDidChangeEmitter.fire();
-          },
-          null,
-          context.subscriptions
+                this._onDidChangeEmitter.fire();
+            },
+            null,
+            context.subscriptions
         );
     }
 
@@ -113,65 +113,45 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                 return [];
             }
 
-            const tomlFileUri = Uri.file(changeExtension(document.uri.fsPath, ".md", ".config.toml"));
-
             return new Promise(async resolve => {
 
                 try {
 
-                    let config: any;
-
-                    if (await fileExists(tomlFileUri)) {
-                        const tomlDocument = await workspace.openTextDocument(tomlFileUri);
-                        config = toml.parse(tomlDocument.getText()) as any;
-                    }
-
-                    else {
-                        config = {
-                            todo: [
-                                {
-                                    type: "todo-items"
-                                }
-                            ]
-                        };
-                    }
+                    let todoConfig: any = getTodoConfig(document.uri);
 
                     const children: TreeItem[] = [];
         
-                    if (config.todo) {
+                    for (const config of todoConfig) {
 
-                        for (const todoConfig of config.todo) {
+                        switch ((<any>config).type) {
 
-                            switch ((<any>todoConfig).type) {
-
-                                case "github":
-                                    children.push(new GitHubItem(todoConfig));
-                                    break;
+                            case "github":
+                                children.push(new GitHubItem(config));
+                                break;
+                        
+                            case "gitlab-issues":
+                                children.push(new GitLabIssuesItem(config));
+                                break;
                             
-                                case "gitlab-issues":
-                                    children.push(new GitLabIssuesItem(todoConfig));
-                                    break;
-                                
-                                case "gitlab-merge-requests":
-                                    children.push(new GitLabMergeRequestsItem(todoConfig));
-                                    break;
-                                
-                                case "gitea-issues":
-                                    children.push(new GiteaItem(todoConfig));
-                                    break;
-    
-                                case "todo-items":
-                                    const page = getPageByUri(this.cortex, document.uri);
+                            case "gitlab-merge-requests":
+                                children.push(new GitLabMergeRequestsItem(config));
+                                break;
+                            
+                            case "gitea-issues":
+                                children.push(new GiteaItem(config));
+                                break;
 
-                                    if (page) {
-                                        children.push(new TodoItems(todoConfig, page));
-                                    }
+                            case "todo-items":
+                                const page = getPageByUri(this.cortex, document.uri);
 
-                                    break;
-                                
-                                default:
-                                    break;
-                            }
+                                if (page) {
+                                    children.push(new TodoItems(config, page));
+                                }
+
+                                break;
+                            
+                            default:
+                                break;
                         }
                     }
 
@@ -183,7 +163,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                 catch (error) {
 
                     let errorItem = new TreeItem(
-                        `Could not read .config.toml file: ${error}`
+                        `Could process todo config: ${error}`
                     );
 
                     errorItem.iconPath = new ThemeIcon("error");

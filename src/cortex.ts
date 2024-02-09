@@ -1,4 +1,4 @@
-import { workspace, Range, Uri, TextDocument, TextLine, Position } from "vscode";
+import { workspace, Range, Uri, TextDocument, Position, ExtensionContext } from "vscode";
 import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
@@ -8,10 +8,11 @@ const _hashTagRegex = /(?:^| )#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
 const _todoDateRegex = /<(\d{4}-\d{2}-\d{2})>/dg;
 const _todoRegex = /^ *- (TODO|DONE)[ |$]/dgm;
 
-export async function buildCortex(): Promise<Map<string, Page>> {
+export async function buildCortex(context: ExtensionContext): Promise<Map<string, Page>> {
     
     logger.appendLine(`Build cortex`);
 
+    // build cortex
     const excludePatterns = getExcludePatterns();
 
     const fileUris = await workspace.findFiles(

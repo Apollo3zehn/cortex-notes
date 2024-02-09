@@ -1,12 +1,13 @@
 import { ExtensionContext, workspace } from 'vscode';
-import { activate as activateCompletions } from './features/linkCompletions';
-import { activate as activateLinks } from './features/linkProvider';
-import { activate as activateDecorations } from './features/decorations';
-import { activate as activateBacklinks } from './features/backlinks';
-import { activate as activateTodo } from './features/todoProvider';
-import { activate as activateCommands } from './features/commands';
 import { logger } from './core';
 import { buildCortex, deleteCortexPageOrMakeTransientByUri } from './cortex';
+import { activate as activateBacklinks } from './features/backlinks';
+import { activate as activateCommands } from './features/commands';
+import { activate as activateDecorations } from './features/decorations';
+import { activate as activateCompletions } from './features/linkCompletions';
+import { activate as activateLinks } from './features/linkProvider';
+import { activate as activateTodo } from './features/todoProvider';
+import { initialize as initializeTodoConfig } from './todoConfig';
 
 export async function activate(context: ExtensionContext) {
 
@@ -17,7 +18,8 @@ export async function activate(context: ExtensionContext) {
         return;
     }
 
-    const cortex = await buildCortex();
+    await initializeTodoConfig(context);
+    const cortex = await buildCortex(context);
 
     activateDecorations(context, cortex);
     activateLinks(context, cortex);

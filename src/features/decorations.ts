@@ -131,36 +131,36 @@ export async function activate(
     // set decorations when document is opened
     window.onDidChangeActiveTextEditor(editor => {
   
-        if (!editor) {
-            return;
-        }
+            if (!editor) {
+                return;
+            }
 
-        updateLinkDecorations(editor);
-      },
-      null,
-      context.subscriptions
+            updateLinkDecorations(editor);
+        },
+        null,
+        context.subscriptions
     );
 
     // set decorations when document has changed
     workspace.onDidChangeTextDocument(e => {
   
-        if (!isSupportedFile(e.document)) {
-            return;
-        };
+            if (!isSupportedFile(e.document)) {
+                return;
+            };
 
-        const editor = window.visibleTextEditors.find(
-            current => current.document === e.document
-        );
+            const editor = window.visibleTextEditors.find(
+                current => current.document === e.document
+            );
 
-        if (!editor) {
-            return;
-        };
+            if (!editor) {
+                return;
+            };
 
-        updateCortexPage(cortex, e.document);
-        updateLinkDecorations(editor);
-      },
-      null,
-      context.subscriptions
+            updateCortexPage(cortex, e.document);
+            updateLinkDecorations(editor);
+        },
+        null,
+        context.subscriptions
     );
 
     updateLinkDecorations(window.activeTextEditor);
