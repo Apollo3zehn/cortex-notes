@@ -67,7 +67,7 @@ const _dayOfWeekDecoration = {
         contentText: '',
         color: '',
         fontWeight: 'bold',
-        margin: '0em 0.2em 0em 0.4em'
+        margin: '0em 0.1em 0em 0.4em'
     }
 };
 

@@ -60,12 +60,22 @@
       {
         "command": "cortex-notes.toggle-todo-state",
         "key": "ctrl+alt+s",
-        "when": "editorLangId == 'markdown'"
+        "when": "editorLangId == 'markdown' && editorTextFocus &&!editorReadonly"
       },
       {
         "command": "cortex-notes.toggle-todo-date",
         "key": "ctrl+alt+d",
-        "when": "editorLangId == 'markdown'"
+        "when": "editorLangId == 'markdown' && editorTextFocus &&!editorReadonly"
+      },
+      {
+        "command": "cortex-notes.priority-up",
+        "key": "ctrl+alt+up",
+        "when": "editorLangId == 'markdown' && editorTextFocus &&!editorReadonly"
+      },
+      {
+        "command": "cortex-notes.priority-down",
+        "key": "ctrl+alt+down",
+        "when": "editorLangId == 'markdown' && editorTextFocus &&!editorReadonly"
       }
     ]
   },

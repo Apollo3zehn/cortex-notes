@@ -1,5 +1,5 @@
 import { ExtensionContext, Position, Range, TextEditor, commands, window } from "vscode";
-import { Page, TodoItem, TodoState } from "../core";
+import { Page, Priority, TodoItem, TodoState } from "../core";
 import { getPageName, isSupportedFile } from "../utils";
 
 const _insertPositionRegex = /^ *-( *).*$/d;
@@ -10,10 +10,14 @@ export async function activate(
     
     const toggleTodoStateCommand = 'cortex-notes.toggle-todo-state';
     const toggleTodoDateCommand = 'cortex-notes.toggle-todo-date';
+    const priorityUpCommand = 'cortex-notes.priority-up';
+    const priorityDownCommand = 'cortex-notes.priority-down';
     
     context.subscriptions.push(
         commands.registerCommand(toggleTodoStateCommand, () => toggleTodoState(cortex)),
-        commands.registerCommand(toggleTodoDateCommand, () => toggleTodoDate(cortex)));
+        commands.registerCommand(toggleTodoDateCommand, () => toggleTodoDate(cortex)),
+        commands.registerCommand(priorityUpCommand, () => changePriority(cortex, true)),
+        commands.registerCommand(priorityDownCommand, () => changePriority(cortex, false)));
 }
 
 function toggleTodoState(cortex: Map<string, Page>) {
@@ -34,7 +38,7 @@ function toggleTodoState(cortex: Map<string, Page>) {
             case TodoState.Todo:
 
                 editor.edit(editBuilder => {
-                    editBuilder.replace(todoItem.range, 'Done');
+                    editBuilder.replace(todoItem.range, 'DONE');
                 });
                 
                 /* must be extra '' to void "overlapping ranges are not allowed" error */
@@ -143,19 +147,83 @@ function toggleTodoDate(cortex: Map<string, Page>) {
 
             editor.edit(editBuilder => {
 
-                const lineNumber = editor.selection.active.line;
-                const line = document.lineAt(lineNumber);
+                const line = document.lineAt(todoItem.range.start.line);
                 const dateString = new Date().toISOString().slice(0, 10);
 
                 editBuilder.replace(line.range, `${line.text.trimEnd()} <${dateString}>`);
             });
         }
     }
+}
 
-    else {
+function changePriority(cortex: Map<string, Page>, up: boolean) {
 
+    const editor = window.activeTextEditor;
+
+    if (!editor) {
+        return;
     }
 
+    const document = editor.document;
+    const todoItem = findTodoItem(cortex, editor);
+
+    if (todoItem) {
+        
+        const modifier = up
+            ? -1
+            : 1;
+
+        let nextPriority: Priority | undefined = undefined;
+        
+        if (todoItem.priority) {
+            nextPriority = (todoItem.priority + modifier) % 4;
+        }
+
+        else {
+            nextPriority = up
+                ? Priority.C
+                : Priority.A;
+        }
+
+        if (todoItem.priorityRange) {
+           
+            editor.edit(editBuilder => {
+
+                if (nextPriority) {
+                    editBuilder.replace(todoItem.priorityRange!, `[#${Priority[nextPriority]}]`);
+                }
+
+                else {
+
+                    const line = document.lineAt(todoItem.priorityRange!.start.line);
+
+                    const prefix = line.text
+                        .substring(0, todoItem.priorityRange!.start.character)
+                        .trimEnd();
+                    
+                    const suffix = line.text
+                        .substring(todoItem.priorityRange!.end.character)
+                        .trimStart();
+
+                    const lineWithoutPriority = [prefix, suffix].join(' ');
+                    
+                    editBuilder.replace(line.range, lineWithoutPriority);
+                }
+            });
+        }
+
+        else {
+
+            editor.edit(editBuilder => {
+
+                const range = new Range(todoItem.range.end, todoItem.range.end);
+
+                if (nextPriority) {
+                    editBuilder.replace(range, ` [#${Priority[nextPriority]}]`);
+                }
+            });
+        }
+    }
 }
 
 function findTodoItem(cortex: Map<string, Page>, editor: TextEditor): TodoItem | undefined {

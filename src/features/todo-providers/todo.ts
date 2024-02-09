@@ -1,5 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState, ThemeIcon, MarkdownString, Uri, workspace } from "vscode";
-import { Page, TodoItem, TodoState, Block } from "../../core";
+import { Page, TodoItem, TodoState, Block, Priority } from "../../core";
 import { CollapsibleTreeItem, GitItem as TodoTreeItem } from "../todoTypes";
 
 class TodoItemsContainer extends CollapsibleTreeItem {
@@ -141,7 +141,7 @@ export class TodoItems extends CollapsibleTreeItem {
                 TreeItemCollapsibleState.Expanded
             ),
             new TodoItemsContainer(
-                'DONE',
+                'Done',
                 doneTodoItems,
                 TreeItemCollapsibleState.Collapsed
             )
@@ -159,14 +159,17 @@ export class TodoItems extends CollapsibleTreeItem {
 
         const label = document
             .lineAt(line).text
-            .replace("- TODO ", '')
-            .replace("- DONE ", '')
+            .replace("- TODO", '')
+            .replace("- DONE", '')
+            .replace("[#A]", '')
+            .replace("[#B]", '')
+            .replace("[#C]", '')
             .trim();
 
         const tooltip = document.getText(sourceBlock.range);
 
-        const decorationUri = rawTodoItem.state === TodoState.Todo && rawTodoItem.date
-            ? this.getDecorationUri(rawTodoItem.date)
+        const decorationUri = rawTodoItem.state === TodoState.Todo && rawTodoItem.priority
+            ? this.getDecorationUri(rawTodoItem.priority)
             : undefined;
 
         const todoItem = new TodoTreeItem(
@@ -184,26 +187,25 @@ export class TodoItems extends CollapsibleTreeItem {
     }
 
     // https://code.visualstudio.com/api/references/theme-color#lists-and-trees
-    static readonly _warning = Uri.parse("cortex-notes://list.warningForeground");
     static readonly _error = Uri.parse("cortex-notes://list.errorForeground");
+    static readonly _warning = Uri.parse("cortex-notes://list.warningForeground");
+    static readonly _info = Uri.parse("cortex-notes://editorOverviewRuler.infoForeground");
 
-    getDecorationUri(date: Date): Uri | undefined {
+    getDecorationUri(priority: Priority): Uri | undefined {
 
-        const now = new Date();
+        switch (priority) {
 
-        let timeUntilOverdue = date.getTime() - now.getTime();
-        let daysUntilOverView = timeUntilOverdue / (24 * 3600 * 1000);
-
-        if (daysUntilOverView <= 0) {
-            return TodoItems._error;
-        }
-
-        else if (daysUntilOverView <= 7) {
-            return TodoItems._warning;
-        }
-        
-        else {
-            return undefined;
+            case Priority.A:
+                return TodoItems._error;
+            
+            case Priority.B:
+                return TodoItems._warning;
+            
+            case Priority.C:
+                return TodoItems._info;
+            
+            default:
+                return undefined;
         }
     }
 }

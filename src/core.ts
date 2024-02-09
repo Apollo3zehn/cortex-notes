@@ -42,10 +42,19 @@ export enum LinkType {
     Hashtag
 }
 
+export enum Priority {
+    None,
+    A,
+    B,
+    C
+}
+
 export class TodoItem {
     constructor(
         public readonly range: Range,
         public readonly state: TodoState,
+        public readonly priority: Priority | undefined,
+        public readonly priorityRange: Range | undefined,
         public readonly date: Date | undefined,
         public readonly dateRange: Range | undefined) {
         //

@@ -1,11 +1,12 @@
 import { workspace, Range, Uri, TextDocument, Position, ExtensionContext } from "vscode";
-import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState } from "./core";
+import { Page, logger, PageLink, LinkType, Block, TodoItem, TodoState, Priority } from "./core";
 import { getExcludePatterns } from "./settings";
 import { getPageName } from "./utils";
 
 const _wikilinkRegex = /\[{2}([^\[]+)\]{2}/dg;
 const _hashTagRegex = /(?:^| )#([\p{L}\p{Emoji_Presentation}\p{N}/_-]+)/dgmu;
 const _todoDateRegex = /<(\d{4}-\d{2}-\d{2})>/dg;
+const _todoPriorityRegex = /\[#([ABC])\]/dg;
 const _todoRegex = /^ *- (TODO|DONE)[ |$]/dgm;
 
 export async function buildCortex(context: ExtensionContext): Promise<Map<string, Page>> {
@@ -227,6 +228,29 @@ function analyzeCortexFile(
                 todoDates.push(range);
             }
 
+            // find TODO priorities
+            const todoPriorityMatches = blockText.matchAll(_todoPriorityRegex);
+            const todoPriorities: Range[] = [];
+
+            for (const match of todoPriorityMatches) {
+
+                if (!match.indices) {
+                    continue;
+                }
+
+                logger.appendLine(`Found TODO priority item on page ${sourcePageName}`);
+
+                match.indices[1][0] -= 2;
+                match.indices[1][1] += 1;
+
+                const indices = match.indices![1];
+                const startPos = document.positionAt(blockOffset + indices[0]);
+                const endPos = document.positionAt(blockOffset + indices[1]);
+                const range = new Range(startPos, endPos);
+
+                todoPriorities.push(range);
+            }
+
             // find TODOs
             const todoMatches = blockText.matchAll(_todoRegex);
 
@@ -247,16 +271,32 @@ function analyzeCortexFile(
                     ? TodoState.Todo
                     : TodoState.Done;
 
+                // date
                 const dateRange = todoDates
                     .find(todoDate => todoDate.start.line === range.start.line);
                 
+                const dateString = document.getText(dateRange);
+                
                 const date = dateRange
-                    ? new Date(document.getText(dateRange))
+                    ? new Date(dateString.substring(1, dateString.length - 1))
                     : undefined;
                 
+                // priority
+                const priorityRange = todoPriorities
+                    .find(todoPriority => todoPriority.start.line === range.start.line);
+                
+                const priorityString = document.getText(priorityRange);
+                
+                const priority = priorityRange
+                    ? Priority[priorityString.substring(2, priorityString.length - 1) as keyof typeof Priority]
+                    : undefined;
+                
+                // todo item
                 const todoItem = new TodoItem(
                     range,
                     todoState,
+                    priority,
+                    priorityRange,
                     date,
                     dateRange);
                 

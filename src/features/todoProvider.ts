@@ -1,13 +1,13 @@
 import { CancellationToken, Event, EventEmitter, ExtensionContext, FileDecoration, FileDecorationProvider, ProviderResult, ThemeColor, ThemeIcon, TreeDataProvider, TreeItem, Uri, window, workspace } from "vscode";
 import { Page } from "../core";
 import { getPageByUri } from "../cortex";
+import { getPageTodoConfig as getTodoConfig } from "../todoConfig";
 import { isSupportedFile } from "../utils";
 import { GiteaItem } from "./todo-providers/gitea";
 import { GitHubItem } from "./todo-providers/github";
 import { GitLabIssuesItem, GitLabMergeRequestsItem } from "./todo-providers/gitlab";
 import { TodoItems } from "./todo-providers/todo";
 import { CollapsibleTreeItem } from "./todoTypes";
-import { getPageTodoConfig as getTodoConfig } from "../todoConfig";
 
 export async function activate(
     context: ExtensionContext,
@@ -163,7 +163,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                 catch (error) {
 
                     let errorItem = new TreeItem(
-                        `Could process todo config: ${error}`
+                        `Could not process todo config: ${error}`
                     );
 
                     errorItem.iconPath = new ThemeIcon("error");
