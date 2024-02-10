@@ -3,7 +3,7 @@ import { OctokitResponse } from "@octokit/types";
 import { Octokit } from "octokit";
 import path from "path";
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
-import { CollapsibleTreeItem, GitItem } from "../todoTypes";
+import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
 
 type IssueItem = components["schemas"]["issue"];
 
@@ -91,7 +91,7 @@ export class GitHubItem extends CollapsibleTreeItem {
                         
                     }).join(' | ');
 
-                return new GitItem(
+                return new TodoTreeItem(
                     issue.title,
                     `#${issue.number} ${description === '' ? '' : "| " + description}`,
                     Uri.parse(issue.html_url),

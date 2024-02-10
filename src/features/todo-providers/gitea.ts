@@ -1,6 +1,6 @@
 import path from "path";
 import { TreeItemCollapsibleState, TreeItem, MarkdownString } from "vscode";
-import { CollapsibleTreeItem, GitItem } from "../todoTypes";
+import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
 
 export class GiteaItem extends CollapsibleTreeItem {
 
@@ -52,7 +52,7 @@ export class GiteaItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.join(' | ');
               
-                return new GitItem(
+                return new TodoTreeItem(
                     issue.title,
                     `#${issue.number} ${description === '' ? '' : "| " + description}`,
                     issue.html_url,

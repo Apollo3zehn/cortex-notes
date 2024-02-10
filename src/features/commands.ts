@@ -1,6 +1,7 @@
-import { ExtensionContext, Position, Range, TextEditor, commands, window } from "vscode";
+import { ExtensionContext, Position, Range, TextDocument, TextEditor, TreeItem, Uri, ViewColumn, WorkspaceEdit, commands, window, workspace } from "vscode";
 import { Page, Priority, TodoItem, TodoState } from "../core";
 import { getPageName, isSupportedFile } from "../utils";
+import { getPageByUri } from "../cortex";
 
 const _insertPositionRegex = /^ *-( *).*$/d;
 
@@ -8,16 +9,29 @@ export async function activate(
     context: ExtensionContext,
     cortex: Map<string, Page>) {
     
+    // toggle state and date
     const toggleTodoStateCommand = 'cortex-notes.toggle-todo-state';
     const toggleTodoDateCommand = 'cortex-notes.toggle-todo-date';
-    const priorityUpCommand = 'cortex-notes.priority-up';
-    const priorityDownCommand = 'cortex-notes.priority-down';
-    
+
     context.subscriptions.push(
         commands.registerCommand(toggleTodoStateCommand, () => toggleTodoState(cortex)),
-        commands.registerCommand(toggleTodoDateCommand, () => toggleTodoDate(cortex)),
-        commands.registerCommand(priorityUpCommand, () => changePriority(cortex, true)),
-        commands.registerCommand(priorityDownCommand, () => changePriority(cortex, false)));
+        commands.registerCommand(toggleTodoDateCommand, () => toggleTodoDate(cortex)));
+
+    // priority up/down
+    const priorityUpCommand = 'cortex-notes.priority-up';
+    const priorityDownCommand = 'cortex-notes.priority-down';
+    const priorityACommand = 'cortex-notes.priority-a';
+    const priorityBCommand = 'cortex-notes.priority-b';
+    const priorityCCommand = 'cortex-notes.priority-c';
+    const priorityResetCommand = 'cortex-notes.priority-reset';
+    
+    context.subscriptions.push(
+        commands.registerCommand(priorityUpCommand, () => priorityUpDown(cortex, true)),
+        commands.registerCommand(priorityDownCommand, () => priorityUpDown(cortex, false)),
+        commands.registerCommand(priorityResetCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.Reset)),
+        commands.registerCommand(priorityACommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.A)),
+        commands.registerCommand(priorityBCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.B)),
+        commands.registerCommand(priorityCCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.C)));
 }
 
 function toggleTodoState(cortex: Map<string, Page>) {
@@ -28,8 +42,13 @@ function toggleTodoState(cortex: Map<string, Page>) {
         return;
     }
 
+    if (!isSupportedFile(editor.document)) {
+        return;
+    }
+
     const document = editor.document;
-    const todoItem = findTodoItem(cortex, editor);
+    const cursorPosition = editor.selection.active;
+    const todoItem = findTodoItem(cortex, editor.document.uri, cursorPosition);
 
     if (todoItem) {
         
@@ -131,8 +150,13 @@ function toggleTodoDate(cortex: Map<string, Page>) {
         return;
     }
 
+    if (!isSupportedFile(editor.document)) {
+        return;
+    }
+
+    const cursorPosition = editor.selection.active;
+    const todoItem = findTodoItem(cortex, editor.document.uri, cursorPosition);
     const document = editor.document;
-    const todoItem = findTodoItem(cortex, editor);
 
     if (todoItem) {
         
@@ -156,7 +180,7 @@ function toggleTodoDate(cortex: Map<string, Page>) {
     }
 }
 
-function changePriority(cortex: Map<string, Page>, up: boolean) {
+async function priorityUpDown(cortex: Map<string, Page>, up: boolean) {
 
     const editor = window.activeTextEditor;
 
@@ -164,84 +188,123 @@ function changePriority(cortex: Map<string, Page>, up: boolean) {
         return;
     }
 
-    const document = editor.document;
-    const todoItem = findTodoItem(cortex, editor);
-
-    if (todoItem) {
-        
-        const modifier = up
-            ? -1
-            : 1;
-
-        let nextPriority: Priority | undefined = undefined;
-        
-        if (todoItem.priority) {
-            nextPriority = (todoItem.priority + modifier) % 4;
-        }
-
-        else {
-            nextPriority = up
-                ? Priority.C
-                : Priority.A;
-        }
-
-        if (todoItem.priorityRange) {
-           
-            editor.edit(editBuilder => {
-
-                if (nextPriority) {
-                    editBuilder.replace(todoItem.priorityRange!, `[#${Priority[nextPriority]}]`);
-                }
-
-                else {
-
-                    const line = document.lineAt(todoItem.priorityRange!.start.line);
-
-                    const prefix = line.text
-                        .substring(0, todoItem.priorityRange!.start.character)
-                        .trimEnd();
-                    
-                    const suffix = line.text
-                        .substring(todoItem.priorityRange!.end.character)
-                        .trimStart();
-
-                    const lineWithoutPriority = [prefix, suffix].join(' ');
-                    
-                    editBuilder.replace(line.range, lineWithoutPriority);
-                }
-            });
-        }
-
-        else {
-
-            editor.edit(editBuilder => {
-
-                const range = new Range(todoItem.range.end, todoItem.range.end);
-
-                if (nextPriority) {
-                    editBuilder.replace(range, ` [#${Priority[nextPriority]}]`);
-                }
-            });
-        }
-    }
-}
-
-function findTodoItem(cortex: Map<string, Page>, editor: TextEditor): TodoItem | undefined {
-
-    const document = editor.document;
-
-    if (!isSupportedFile(document)) {
+    if (!isSupportedFile(editor.document)) {
         return;
     }
 
-    const page = cortex.get(getPageName(document.uri));
+    const cursorPosition = editor.selection.active;
+    const todoItem = findTodoItem(cortex, editor.document.uri, cursorPosition);
+
+    if (!todoItem) {
+        return;
+    }
+
+    const modifier = up
+            ? -1
+            : 1;
+
+    let priority: Priority | undefined = undefined;
+    
+    if (todoItem.priority) {
+        priority = (todoItem.priority + modifier) % 4;
+    }
+
+    else {
+        priority = up
+            ? Priority.C
+            : Priority.A;
+    }
+
+    await setPriority(todoItem, priority, editor.document.uri);
+}
+
+async function setPriorityForTreeItem(
+    cortex: Map<string, Page>,
+    treeItem: TreeItem | undefined,
+    priority: Priority) {
+      
+    if (!(treeItem && treeItem.contextValue)) {
+        return;
+    }
+    
+    const contextParts = treeItem.contextValue.split(";");
+    const pageUriString = contextParts[0];
+
+    let pageUri: Uri;
+
+    try {
+        pageUri = Uri.parse(pageUriString, true);
+    } catch (error) {
+        return;
+    }
+
+    const line = parseInt(contextParts[1]);
+    const position = new Position(line, 0);
+    const todoItem = findTodoItem(cortex, pageUri, position);
+
+    if (!todoItem) {
+        return;
+    }
+
+    await setPriority(todoItem, priority, pageUri);
+}
+
+async function setPriority(
+    todoItem: TodoItem,
+    priority: Priority,
+    pageUri: Uri) {
+    
+    const workspaceEdit = new WorkspaceEdit();
+    
+    if (todoItem.priorityRange) {
+        
+        if (priority) {
+            workspaceEdit.replace(pageUri, todoItem.priorityRange!, `[#${Priority[priority]}]`);
+        }
+
+        else {
+
+            const document = await workspace.openTextDocument(pageUri);
+            const line = document.lineAt(todoItem.priorityRange!.start.line);
+
+            const prefix = line.text
+                .substring(0, todoItem.priorityRange!.start.character)
+                .trimEnd();
+            
+            const suffix = line.text
+                .substring(todoItem.priorityRange!.end.character)
+                .trimStart();
+
+            const lineWithoutPriority = [prefix, suffix].join(' ');
+            
+            workspaceEdit.replace(pageUri, line.range, lineWithoutPriority);
+        }
+    }
+
+    else {
+
+        const range = new Range(todoItem.range.end, todoItem.range.end);
+
+        if (priority) {
+            workspaceEdit.replace(pageUri, range, ` [#${Priority[priority]}]`);
+        }
+    }
+
+    await workspace.applyEdit(workspaceEdit);
+}
+
+function findTodoItem(
+    cortex: Map<string, Page>,
+    pageUri: Uri,
+    position: Position): TodoItem | undefined {
+
+    const page = getPageByUri(cortex, pageUri);
 
     if (!page) {
         return;
     }
 
-    const cursorPosition = editor.selection.active;
-    const block = page.blocks.find(block => block.range.contains(cursorPosition));
+    const block = page.blocks.find(block => block.range.contains(position));
 
     if (!block) {
         return;
@@ -250,7 +313,7 @@ function findTodoItem(cortex: Map<string, Page>, editor: TextEditor): TodoItem |
     const todoItem = block.links
         .flatMap(link => link.todoItems)
         .concat(block.unassociatedTodoItems)
-        .find(todoItem => todoItem.range.start.line === cursorPosition.line);
+        .find(todoItem => todoItem.range.start.line === position.line);
     
     return todoItem;
 }

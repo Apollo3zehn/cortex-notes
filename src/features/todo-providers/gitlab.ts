@@ -1,6 +1,6 @@
 import path from "path";
 import { TreeItemCollapsibleState, TreeItem, MarkdownString } from "vscode";
-import { CollapsibleTreeItem, GitItem } from "../todoTypes";
+import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
 
 export class GitLabIssuesItem extends CollapsibleTreeItem {
 
@@ -51,7 +51,7 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.map(label => label).join(' | ');
               
-                return new GitItem(
+                return new TodoTreeItem(
                     issue.title,
                     `#${issue.iid} ${description === '' ? '' : "| " + description}`,
                     issue.web_url,
@@ -118,7 +118,7 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.map(label => label).join(' | ');
               
-                return new GitItem(
+                return new TodoTreeItem(
                     issue.title,
                     `!${issue.iid} ${description === '' ? '' : "| " + description}`,
                     issue.web_url,

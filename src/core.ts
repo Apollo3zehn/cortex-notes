@@ -43,7 +43,7 @@ export enum LinkType {
 }
 
 export enum Priority {
-    None,
+    Reset,
     A,
     B,
     C

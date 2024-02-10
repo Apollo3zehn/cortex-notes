@@ -14,6 +14,24 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "cortex-notes.priority-a",
+        "title": "Priority A"
+      },
+      {
+        "command": "cortex-notes.priority-b",
+        "title": "Priority B"
+      },
+      {
+        "command": "cortex-notes.priority-c",
+        "title": "Priority C"
+      },
+      {
+        "command": "cortex-notes.priority-reset",
+        "title": "Reset priority"
+      }
+    ],
     "configuration": {
       "title": "Cortex Notes",
       "properties": {
@@ -27,6 +45,26 @@
           "description": "Specifies exclude patterns."
         }
       }
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "cortex-notes.priority-a",
+          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^A]$|$)/"
+        },
+        {
+          "command": "cortex-notes.priority-b",
+          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^B]$|$)/"
+        },
+        {
+          "command": "cortex-notes.priority-c",
+          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^C]$|$)/"
+        },
+        {
+          "command": "cortex-notes.priority-reset",
+          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;.$/"
+        }
+      ]
     },
     "viewsContainers": {
       "panel": [

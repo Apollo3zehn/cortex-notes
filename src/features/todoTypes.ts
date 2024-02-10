@@ -5,8 +5,8 @@ export abstract class CollapsibleTreeItem extends TreeItem {
     _children: TreeItem[] | undefined;
 
     constructor(
-        readonly label: string | TreeItemLabel,
-        readonly collapsibleState: TreeItemCollapsibleState | undefined
+        label: string | TreeItemLabel,
+        collapsibleState: TreeItemCollapsibleState | undefined
     ) {
         super(label, collapsibleState);
     }
@@ -27,21 +27,24 @@ export abstract class CollapsibleTreeItem extends TreeItem {
     abstract internalGetChildren(): Promise<TreeItem[]>;
 }
 
-export class GitItem extends TreeItem {
+export class TodoTreeItem extends TreeItem {
+    
     constructor(
-        readonly label: string,
-        readonly description: string,
-        readonly uri: Uri | undefined,
-        readonly decorationUri: Uri | undefined,
-        readonly tooltip: MarkdownString,
-        readonly iconId: string | undefined,
-        readonly collapsibleState: TreeItemCollapsibleState) {
+        label: string,
+        description: string,
+        uri: Uri | undefined,
+        decorationUri: Uri | undefined,
+        tooltip: MarkdownString,
+        iconId: string | undefined,
+        collapsibleState: TreeItemCollapsibleState,
+        context?: string | undefined) {
         
         super(label, collapsibleState);
         
         this.description = description;
         this.tooltip = tooltip;
         this.resourceUri = decorationUri;
+        this.contextValue = context;
 
         if (iconId) {
             this.iconPath = new ThemeIcon(iconId);

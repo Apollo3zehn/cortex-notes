@@ -1,6 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState, ThemeIcon, MarkdownString, Uri, workspace } from "vscode";
 import { Page, TodoItem, TodoState, Block, Priority } from "../../core";
-import { CollapsibleTreeItem, GitItem as TodoTreeItem } from "../todoTypes";
+import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
 
 class TodoItemsContainer extends CollapsibleTreeItem {
 
@@ -172,6 +172,11 @@ export class TodoItems extends CollapsibleTreeItem {
             ? this.getDecorationUri(rawTodoItem.priority)
             : undefined;
 
+        const context_part_1 = pageUri.toString();
+        const context_part_2 = rawTodoItem.range.start.line.toString();
+        const context_part_3 = rawTodoItem.priority ? Priority[rawTodoItem.priority] : undefined;
+        const context = [context_part_1, context_part_2, context_part_3].join(';');
+        
         const todoItem = new TodoTreeItem(
             label,
             '',
@@ -179,7 +184,8 @@ export class TodoItems extends CollapsibleTreeItem {
             decorationUri,
             new MarkdownString(tooltip),
             undefined,
-            TreeItemCollapsibleState.None);
+            TreeItemCollapsibleState.None,
+            context);
         
         todoItem.iconPath = new ThemeIcon(iconId);
         
