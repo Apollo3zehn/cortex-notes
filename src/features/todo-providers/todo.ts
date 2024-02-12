@@ -53,7 +53,7 @@ export class TodoItems extends CollapsibleTreeItem {
                         continue;
                     }
 
-                    const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "arrow-right");
+                    const todoItem = await this.createTodoItem(this.page, rawTodoItem, block, "arrow-right");
 
                     rawTodoItem.state === TodoState.Todo
                         ? openTodoItems.push(todoItem)
@@ -65,7 +65,7 @@ export class TodoItems extends CollapsibleTreeItem {
 
             for (const rawTodoItem of block.unassociatedTodoItems) {
 
-                const todoItem = await this.createTodoItem(this.page.uri!, rawTodoItem, block, "dash");
+                const todoItem = await this.createTodoItem(this.page, rawTodoItem, block, "dash");
                 
                 rawTodoItem.state === TodoState.Todo
                     ? openTodoItems.push(todoItem)
@@ -89,7 +89,7 @@ export class TodoItems extends CollapsibleTreeItem {
                     continue;
                 }
 
-                const todoItem = await this.createTodoItem(sourcePage.uri, rawTodoItem, block, "arrow-left");
+                const todoItem = await this.createTodoItem(sourcePage, rawTodoItem, block, "arrow-left");
                 
                 rawTodoItem.state === TodoState.Todo
                     ? openTodoItems.push(todoItem)
@@ -149,11 +149,12 @@ export class TodoItems extends CollapsibleTreeItem {
     }
 
     async createTodoItem(
-        pageUri: Uri,
+        page: Page,
         rawTodoItem: TodoItem,
         sourceBlock: Block,
         iconId: string) {
         
+        const pageUri = page.uri!;
         const document = await workspace.openTextDocument(pageUri);
         const line = rawTodoItem.range.start.line;
 
@@ -171,11 +172,10 @@ export class TodoItems extends CollapsibleTreeItem {
         const decorationUri = rawTodoItem.state === TodoState.Todo && rawTodoItem.priority
             ? this.getDecorationUri(rawTodoItem.priority)
             : undefined;
-
-        const context_part_1 = pageUri.toString();
-        const context_part_2 = rawTodoItem.range.start.line.toString();
-        const context_part_3 = rawTodoItem.priority ? Priority[rawTodoItem.priority] : undefined;
-        const context = [context_part_1, context_part_2, context_part_3].join(';');
+       
+        const context = rawTodoItem.priority
+            ? Priority[rawTodoItem.priority].toString()
+            : '0';
         
         const todoItem = new TodoTreeItem(
             label,
@@ -185,7 +185,8 @@ export class TodoItems extends CollapsibleTreeItem {
             new MarkdownString(tooltip),
             undefined,
             TreeItemCollapsibleState.None,
-            context);
+            context,
+            [page.uri!, rawTodoItem]);
         
         todoItem.iconPath = new ThemeIcon(iconId);
         

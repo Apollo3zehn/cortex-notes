@@ -37,7 +37,8 @@ export class TodoTreeItem extends TreeItem {
         tooltip: MarkdownString,
         iconId: string | undefined,
         collapsibleState: TreeItemCollapsibleState,
-        context?: string | undefined) {
+        context?: string | undefined,
+        readonly cortexContext?: any) {
         
         super(label, collapsibleState);
         

@@ -1,7 +1,8 @@
-import { ExtensionContext, Position, Range, TextDocument, TextEditor, TreeItem, Uri, ViewColumn, WorkspaceEdit, commands, window, workspace } from "vscode";
+import { ExtensionContext, Position, Range, TreeItem, Uri, WorkspaceEdit, commands, window, workspace } from "vscode";
 import { Page, Priority, TodoItem, TodoState } from "../core";
-import { getPageName, isSupportedFile } from "../utils";
+import { isSupportedFile } from "../utils";
 import { getPageByUri } from "../cortex";
+import { TodoTreeItem } from "./todoTypes";
 
 const _insertPositionRegex = /^ *-( *).*$/d;
 
@@ -28,10 +29,10 @@ export async function activate(
     context.subscriptions.push(
         commands.registerCommand(priorityUpCommand, () => priorityUpDown(cortex, true)),
         commands.registerCommand(priorityDownCommand, () => priorityUpDown(cortex, false)),
-        commands.registerCommand(priorityResetCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.Reset)),
-        commands.registerCommand(priorityACommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.A)),
-        commands.registerCommand(priorityBCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.B)),
-        commands.registerCommand(priorityCCommand, treeItem => setPriorityForTreeItem(cortex, treeItem, Priority.C)));
+        commands.registerCommand(priorityResetCommand, treeItem => setPriorityForTreeItem(treeItem, Priority.Reset)),
+        commands.registerCommand(priorityACommand, treeItem => setPriorityForTreeItem(treeItem, Priority.A)),
+        commands.registerCommand(priorityBCommand, treeItem => setPriorityForTreeItem(treeItem, Priority.B)),
+        commands.registerCommand(priorityCCommand, treeItem => setPriorityForTreeItem(treeItem, Priority.C)));
 }
 
 function toggleTodoState(cortex: Map<string, Page>) {
@@ -219,32 +220,21 @@ async function priorityUpDown(cortex: Map<string, Page>, up: boolean) {
 }
 
 async function setPriorityForTreeItem(
-    cortex: Map<string, Page>,
     treeItem: TreeItem | undefined,
     priority: Priority) {
-      
-    if (!(treeItem && treeItem.contextValue)) {
+    
+    if (!(
+        treeItem instanceof TodoTreeItem &&
+        treeItem.cortexContext instanceof Array &&
+        treeItem.cortexContext.length === 2 &&
+        treeItem.cortexContext[0] instanceof Uri &&
+        treeItem.cortexContext[1] instanceof TodoItem)) {
+        
         return;
     }
     
-    const contextParts = treeItem.contextValue.split(";");
-    const pageUriString = contextParts[0];
-
-    let pageUri: Uri;
-
-    try {
-        pageUri = Uri.parse(pageUriString, true);
-    } catch (error) {
-        return;
-    }
-
-    const line = parseInt(contextParts[1]);
-    const position = new Position(line, 0);
-    const todoItem = findTodoItem(cortex, pageUri, position);
-
-    if (!todoItem) {
-        return;
-    }
+    const pageUri = treeItem.cortexContext[0];
+    const todoItem = treeItem.cortexContext[1];
 
     await setPriority(todoItem, priority, pageUri);
 }

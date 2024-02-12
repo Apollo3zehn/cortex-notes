@@ -50,19 +50,19 @@
       "view/item/context": [
         {
           "command": "cortex-notes.priority-a",
-          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^A]$|$)/"
+          "when": "view == cortex-notes.todos && viewItem =~ /[^A]/"
         },
         {
           "command": "cortex-notes.priority-b",
-          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^B]$|$)/"
+          "when": "view == cortex-notes.todos && viewItem =~ /[^B]/"
         },
         {
           "command": "cortex-notes.priority-c",
-          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;(?:[^C]$|$)/"
+          "when": "view == cortex-notes.todos && viewItem =~ /[^C]/"
         },
         {
           "command": "cortex-notes.priority-reset",
-          "when": "view == cortex-notes.todos && viewItem =~ /^.*?;.*?;.$/"
+          "when": "view == cortex-notes.todos && viewItem =~ /[^0]/"
         }
       ]
     },
@@ -137,6 +137,8 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@azure/identity": "^4.0.1",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "@octokit/openapi-types": "^19.1.0",
     "@octokit/types": "^12.4.0",
     "octokit": "^3.1.2",

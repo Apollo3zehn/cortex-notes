@@ -8,6 +8,7 @@ import { GitHubItem } from "./todo-providers/github";
 import { GitLabIssuesItem, GitLabMergeRequestsItem } from "./todo-providers/gitlab";
 import { TodoItems } from "./todo-providers/todo";
 import { CollapsibleTreeItem } from "./todoTypes";
+import { OutlookItem } from "./todo-providers/mail.outlook";
 
 export async function activate(
     context: ExtensionContext,
@@ -139,6 +140,10 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                             
                             case "gitea-issues":
                                 children.push(new GiteaItem(config));
+                                break;
+                            
+                            case "outlook":
+                                children.push(new OutlookItem(config));
                                 break;
 
                             case "todo-items":
