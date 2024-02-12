@@ -1,9 +1,10 @@
-import path from "path";
-import { TreeItemCollapsibleState, TreeItem, window } from "vscode";
-import { CollapsibleTreeItem } from "../todoTypes";
+import { InteractiveBrowserCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
-import { DeviceCodeCredential } from "@azure/identity";
+import { Message } from "@microsoft/microsoft-graph-types";
+import path from "path";
+import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
+import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
 
 export class OutlookItem extends CollapsibleTreeItem {
 
@@ -32,18 +33,9 @@ export class OutlookItem extends CollapsibleTreeItem {
         }
 
         // https://learn.microsoft.com/en-us/graph/sdks/choose-authentication-providers?tabs=typescript#device-code-provider
-        const credential = new DeviceCodeCredential({
-            tenantId: '6b0a5518-c0bc-49e3-b0a6-0b9a63f31fc1',
-            clientId: 'f470bc86-5748-46ef-8d92-450964420fb9',
-            userPromptCallback: async info => {
-
-                const deviceCode = await window.showInputBox({
-                    placeHolder: "device code",
-                    prompt: info.message
-                });
-
-                return deviceCode;
-            },
+        const credential = new InteractiveBrowserCredential({
+            tenantId: 'common',
+            clientId: 'f470bc86-5748-46ef-8d92-450964420fb9'
           });
           
         const authProvider = new TokenCredentialAuthenticationProvider(credential, {
@@ -56,21 +48,35 @@ export class OutlookItem extends CollapsibleTreeItem {
     async internalGetChildren(): Promise<TreeItem[]> {
 
         try {
-            const messages = await this._graphClient.api('/me/messages').top(10).get();
+
+            // const page = this.page ? this.page : 1;
+            // const owner = encodeURIComponent(this.config.owner);
+            // const repository = encodeURIComponent(this.config.repository);
+            // const url = `${this.config.base_url}/api/v1/repos/${owner}/${repository}/issues?state=open&page=${page}&limit=${OutlookItem.ISSUES_PER_PAGE}`;
+
+            const messages: Message[] = (await this._graphClient.api('/me/mailFolders/inbox/messages').top(10).get()).value;
+
+            const todoItems = messages.map(message => {
+
+                const todoItem = new TodoTreeItem(
+                    message.subject ?? '',
+                    message.bodyPreview ?? '',
+                    message.webLink ? Uri.parse(message.webLink) : undefined,
+                    undefined,
+                    new MarkdownString('to be rendered'),
+                    message.attachments ? 'mail' : 'wrench',
+                    TreeItemCollapsibleState.None,
+                    undefined,
+                    undefined);
+                
+                return todoItem;
+            });
+                
+            return todoItems;
         } catch (error) {
-            const c = 1;
+            //
+            const a = 1;
         }
-
-        const page = this.page ? this.page : 1;
-        const owner = encodeURIComponent(this.config.owner);
-        const repository = encodeURIComponent(this.config.repository);
-        const url = `${this.config.base_url}/api/v1/repos/${owner}/${repository}/issues?state=open&page=${page}&limit=${OutlookItem.ISSUES_PER_PAGE}`;
-
-        const response = await fetch(url, {
-            headers: {
-                Authorization: `token ${this.config.api_key}`
-            }
-        });
 
         return [];
     }

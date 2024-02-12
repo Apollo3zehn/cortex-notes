@@ -126,6 +126,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@microsoft/microsoft-graph-types": "^2.40.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.16",
     "@types/vscode": "^1.85.0",
