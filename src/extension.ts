@@ -2,7 +2,7 @@ import { ExtensionContext, workspace } from 'vscode';
 import { logger } from './core';
 import { buildCortex, deleteCortexPageOrMakeTransientByUri } from './cortex';
 import { activate as activateBacklinks } from './features/backlinks';
-import { activate as activateCommands } from './features/commands';
+import { activate as activateCommands } from './features/cortexCommands';
 import { activate as activateDecorations } from './features/decorations';
 import { activate as activateCompletions } from './features/linkCompletions';
 import { activate as activateLinks } from './features/linkProvider';

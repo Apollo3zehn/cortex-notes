@@ -12,15 +12,20 @@ export class GiteaItem extends CollapsibleTreeItem {
     ) {
         super(
             page
-                ? "More ..."
-                : `Gitea: ${config.repository}`,
+                ? 'More ...'
+                : 'Gitea',
             
             config.collapsed === 'true' || page
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
         );
 
+        
         if (!page) {
+
+            this.contextValue = "can-reload";
+            this.description = config.repository;
+
             this.iconPath = {
                 light: path.join(__filename, '..', '..', '..', '..', 'resources', 'light', 'gitea.svg'),
                 dark: path.join(__filename, '..', '..', '..', '..', 'resources', 'dark', 'gitea.svg')
@@ -58,8 +63,7 @@ export class GiteaItem extends CollapsibleTreeItem {
                     issue.html_url,
                     undefined,
                     new MarkdownString(issue.body),
-                    issue.pull_request ? 'git-pull-request' : 'circle-outline',
-                    TreeItemCollapsibleState.None);
+                    issue.pull_request ? 'git-pull-request' : 'circle-outline');
             });
         
         if (issues.length === GiteaItem.ISSUES_PER_PAGE) {

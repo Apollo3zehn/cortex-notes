@@ -1,4 +1,4 @@
-import { CancellationToken, Event, EventEmitter, ExtensionContext, FileDecoration, FileDecorationProvider, ProviderResult, ThemeColor, ThemeIcon, TreeDataProvider, TreeItem, Uri, window, workspace } from "vscode";
+import { CancellationToken, Event, EventEmitter, ExtensionContext, FileDecoration, FileDecorationProvider, ProviderResult, ThemeColor, ThemeIcon, TreeDataProvider, TreeItem, Uri, commands, window, workspace } from "vscode";
 import { Page } from "../core";
 import { getPageByUri } from "../cortex";
 import { getPageTodoConfig as getTodoConfig } from "../todoConfig";
@@ -6,9 +6,12 @@ import { isSupportedFile } from "../utils";
 import { GiteaItem } from "./todo-providers/gitea";
 import { GitHubItem } from "./todo-providers/github";
 import { GitLabIssuesItem, GitLabMergeRequestsItem } from "./todo-providers/gitlab";
+import { OutlookItem } from "./todo-providers/mail.outlook";
 import { TodoItems } from "./todo-providers/todo";
 import { CollapsibleTreeItem } from "./todoTypes";
-import { OutlookItem } from "./todo-providers/mail.outlook";
+
+const _cache = new Map<Page, TreeItem[]>();
+const _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
 
 export async function activate(
     context: ExtensionContext,
@@ -21,7 +24,80 @@ export async function activate(
             'cortex-notes.todos',
             provider),
         window.registerFileDecorationProvider(new TodoDecorationProvider()));
+    
+    const reloadTreeCommand = 'cortex-notes.reload-tree';
+    const treeItemCustomActionCommand = 'cortex-notes.tree-item-custom-action';
+    
+    context.subscriptions.push(
+
+        commands.registerCommand(reloadTreeCommand, item => {
+            if (item instanceof CollapsibleTreeItem) {
+                item.resetChildren();
+                _onDidChangeEmitter.fire();
+            }
+        }),
+    
+        commands.registerCommand(treeItemCustomActionCommand, action => {
+            if (action) {
+                action();
+            }
+        }),
+    
+        // update view when document is opened
+        window.onDidChangeActiveTextEditor(editor => {
+  
+            if (!editor) {
+                return;
+            }
+
+            _onDidChangeEmitter.fire();
+        },
+            null,
+            context.subscriptions
+        ),
+
+        // update view when document has changed
+        workspace.onDidChangeTextDocument(e => {
+
+            const document = window.activeTextEditor?.document;
+
+            if (!document || !isSupportedFile(document)) {
+                return;
+            }
+
+            const page = getPageByUri(cortex, document.uri);
+
+            if (!page) {
+                return;
+            }
+
+            if (_cache.has(page)) {
+                    
+                const children = _cache.get(page);
+
+                if (!children) {
+                    return;
+                }
+
+                const todoItemsSet = children
+                    .filter(child => child instanceof TodoItems);
+
+                for (const todoItems of todoItemsSet) {
+                    /* alternative for casting: https://stackoverflow.com/a/54318054 */
+                    (<CollapsibleTreeItem>todoItems).resetChildren();
+                }
+
+                return;
+            }
+
+            _onDidChangeEmitter.fire();
+        },
+            null,
+            context.subscriptions
+        )
+    );
 }
+
 
 class TodoDecorationProvider implements FileDecorationProvider {
     provideFileDecoration(uri: Uri, token: CancellationToken): ProviderResult<FileDecoration> {
@@ -41,48 +117,11 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
     
     onDidChangeTreeData?: Event<void | TreeItem | TreeItem[] | null | undefined> | undefined;
 
-    _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
-    _children: TreeItem[] | undefined;
-
     constructor(
         context: ExtensionContext,
         readonly cortex: Map<string, Page>
     ) {
-        this.onDidChangeTreeData = this._onDidChangeEmitter.event;
-      
-        // update view when document is opened
-        window.onDidChangeActiveTextEditor(editor => {
-  
-                if (!editor) {
-                    return;
-                }
-
-                this._children = undefined;
-                this._onDidChangeEmitter.fire();
-            },
-            null,
-            context.subscriptions
-        );
-
-        // update view when document has changed
-        workspace.onDidChangeTextDocument(e => {
-
-                if (this._children) {
-
-                    const todoItemsSet = this._children
-                        .filter(child => child instanceof TodoItems);
-
-                    for (const todoItems of todoItemsSet) {
-                        /* alternative to cast: https://stackoverflow.com/a/54318054 */
-                        (<TodoItems>todoItems).resetChildren();
-                    }
-                }
-
-                this._onDidChangeEmitter.fire();
-            },
-            null,
-            context.subscriptions
-        );
+        this.onDidChangeTreeData = _onDidChangeEmitter.event;
     }
 
     getTreeItem(element: TreeItem): TreeItem | Thenable<TreeItem> {
@@ -104,22 +143,30 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
         else {
 
-            if (this._children) {
-                return this._children;
-            }
-
-            const document = window.activeTextEditor?.document;
-
-            if (!document || !isSupportedFile(document)) {
-                return [];
-            }
-
             return new Promise(async resolve => {
 
                 try {
 
-                    let todoConfig: any = getTodoConfig(document.uri);
+                    const document = window.activeTextEditor?.document;
 
+                    if (!document || !isSupportedFile(document)) {
+                        resolve([]);
+                        return;
+                    }
+
+                    const page = getPageByUri(this.cortex, document.uri);
+
+                    if (!page) {
+                        resolve([]);
+                        return;
+                    }
+
+                    if (_cache.has(page)) {
+                        resolve(_cache.get(page));
+                        return;
+                    }
+
+                    const todoConfig: any = getTodoConfig(document.uri);
                     const children: TreeItem[] = [];
         
                     for (const config of todoConfig) {
@@ -147,12 +194,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                                 break;
 
                             case "todo-items":
-                                const page = getPageByUri(this.cortex, document.uri);
-
-                                if (page) {
-                                    children.push(new TodoItems(config, page));
-                                }
-
+                                children.push(new TodoItems(config, page));
                                 break;
                             
                             default:
@@ -160,7 +202,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
                         }
                     }
 
-                    this._children = children;
+                    _cache.set(page, children);
 
                     resolve(children);
                 }

@@ -18,7 +18,7 @@ export async function activate(
         commands.registerCommand(toggleTodoStateCommand, () => toggleTodoState(cortex)),
         commands.registerCommand(toggleTodoDateCommand, () => toggleTodoDate(cortex)));
 
-    // priority up/down
+    // priority
     const priorityUpCommand = 'cortex-notes.priority-up';
     const priorityDownCommand = 'cortex-notes.priority-down';
     const priorityACommand = 'cortex-notes.priority-a';

@@ -26,15 +26,19 @@ export class GitHubItem extends CollapsibleTreeItem {
     ) {
         super(
             issuesIterator
-                ? "More ..."
-                : `GitHub: ${config.repository}`,
+                ? 'More ...'
+                : 'GitHub',
             
             config.collapsed === 'true' || issuesIterator
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
         );
 
+        
         if (!issuesIterator) {
+            
+            this.contextValue = "can-reload";
+            this.description = config.repository;
 
             const octokit = new Octokit({
                 auth: this.config.api_key
@@ -97,8 +101,7 @@ export class GitHubItem extends CollapsibleTreeItem {
                     Uri.parse(issue.html_url),
                     undefined,
                     new MarkdownString(issue.body ?? undefined),
-                    issue.pull_request ? 'git-pull-request' : 'circle-outline',
-                    TreeItemCollapsibleState.None);
+                    issue.pull_request ? 'git-pull-request' : 'circle-outline');
             });
         
         if (issues.length === GitHubItem.ISSUES_PER_PAGE) {

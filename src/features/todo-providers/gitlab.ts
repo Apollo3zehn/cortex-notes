@@ -12,15 +12,19 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
     ) {
         super(
             page
-                ? "More ..."
-                : `GitLab Issues: ${config.repository}`,
-            
+                ? 'More ...'
+                : 'GitLab Issues',
+                       
             config.collapsed === 'true' || page
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
         );
 
         if (!page) {
+
+            this.description = config.repository;
+            this.contextValue = "can-reload";
+
             this.iconPath = {
                 light: path.join(__filename, '..', '..', '..', '..', 'resources', 'light', 'gitlab.svg'),
                 dark: path.join(__filename, '..', '..', '..', '..', 'resources', 'dark', 'gitlab.svg')
@@ -57,8 +61,7 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
                     issue.web_url,
                     undefined,
                     new MarkdownString(issue.description),
-                    'circle-outline',
-                    TreeItemCollapsibleState.None);
+                    'circle-outline');
             });
         
         if (issues.length === GitLabIssuesItem.ISSUES_PER_PAGE) {
@@ -79,8 +82,8 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
     ) {
         super(
             page
-                ? "More ..."
-                : `GitLab MRs: ${config.repository}`,
+                ? 'More ...'
+                : 'GitLab MRs',
             
             config.collapsed === 'true' || page
                 ? TreeItemCollapsibleState.Collapsed
@@ -88,6 +91,10 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
         );
 
         if (!page) {
+
+            this.description = config.repository;
+            this.contextValue = "can-reload";
+
             this.iconPath = {
                 light: path.join(__filename, '..', '..', '..', '..', 'resources', 'light', 'gitlab.svg'),
                 dark: path.join(__filename, '..', '..', '..', '..', 'resources', 'dark', 'gitlab.svg')
@@ -124,8 +131,7 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
                     issue.web_url,
                     undefined,
                     new MarkdownString(issue.description),
-                    'git-pull-request',
-                    TreeItemCollapsibleState.None);
+                    'git-pull-request');
             });
         
         if (mergeRequests.length === GitLabMergeRequestsItem.MERGE_REQUESTS_PER_PAGE) {

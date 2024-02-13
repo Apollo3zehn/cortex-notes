@@ -106,9 +106,8 @@ export class TodoItems extends CollapsibleTreeItem {
                     'There are no TODO items for this page',
                     undefined,
                     undefined,
-                    new MarkdownString(''),
                     undefined,
-                    TreeItemCollapsibleState.None)
+                    undefined)
             ];
         }
 
@@ -118,9 +117,8 @@ export class TodoItems extends CollapsibleTreeItem {
                 'There are no TODO items for this page',
                 undefined,
                 undefined,
-                new MarkdownString(''),
                 undefined,
-                TreeItemCollapsibleState.None));
+                undefined));
         }
 
         if (doneTodoItems.length === 0) {
@@ -129,9 +127,8 @@ export class TodoItems extends CollapsibleTreeItem {
                 'There are no DONE items for this page',
                 undefined,
                 undefined,
-                new MarkdownString(''),
                 undefined,
-                TreeItemCollapsibleState.None));
+                undefined));
         }
 
         return [
@@ -184,7 +181,6 @@ export class TodoItems extends CollapsibleTreeItem {
             decorationUri,
             new MarkdownString(tooltip),
             undefined,
-            TreeItemCollapsibleState.None,
             context,
             [page.uri!, rawTodoItem]);
         

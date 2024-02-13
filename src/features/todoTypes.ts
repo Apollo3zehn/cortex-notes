@@ -31,16 +31,15 @@ export class TodoTreeItem extends TreeItem {
     
     constructor(
         label: string,
-        description: string,
+        description: string | undefined,
         uri: Uri | undefined,
         decorationUri: Uri | undefined,
-        tooltip: MarkdownString,
+        tooltip: string | MarkdownString | undefined,
         iconId: string | undefined,
-        collapsibleState: TreeItemCollapsibleState,
         context?: string | undefined,
         readonly cortexContext?: any) {
         
-        super(label, collapsibleState);
+        super(label, TreeItemCollapsibleState.None);
         
         this.description = description;
         this.tooltip = tooltip;
