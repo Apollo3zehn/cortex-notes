@@ -1,8 +1,8 @@
 import { ExtensionContext, Position, Range, TreeItem, Uri, WorkspaceEdit, commands, window, workspace } from "vscode";
 import { Page, Priority, TodoItem, TodoState } from "../core";
-import { isSupportedFile } from "../utils";
 import { getPageByUri } from "../cortex";
-import { TodoTreeItem } from "./todoTypes";
+import { isSupportedFile } from "../utils";
+import { ContextTreeItem } from "./todoTypes";
 
 const _insertPositionRegex = /^ *-( *).*$/d;
 
@@ -224,7 +224,7 @@ async function setPriorityForTreeItem(
     priority: Priority) {
     
     if (!(
-        treeItem instanceof TodoTreeItem &&
+        treeItem instanceof ContextTreeItem &&
         treeItem.cortexContext instanceof Array &&
         treeItem.cortexContext.length === 2 &&
         treeItem.cortexContext[0] instanceof Uri &&

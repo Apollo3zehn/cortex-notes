@@ -6,8 +6,8 @@ import { exec } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { MarkdownString, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from "vscode";
-import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
+import { MarkdownString, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from "vscode";
+import { ChildrenCachingTreeItem } from "../todoTypes";
 
 // To solve NODE_MODULE_VERSION mismatch errors (caused by a dependency of "@azure/identity-cache-persistence"):
 // 1. Get Electron version via vscode -> Help -> About -> Electron
@@ -40,25 +40,25 @@ const authProvider = new TokenCredentialAuthenticationProvider(credential, {
     
 const graphClient = Client.initWithMiddleware({ authProvider: authProvider });
 
-export class OutlookItem extends CollapsibleTreeItem {
+export class OutlookItem extends ChildrenCachingTreeItem {
 
-    static readonly ISSUES_PER_PAGE: number = 30;
+    static readonly MESSAGES_PER_PAGE: number = 30;
 
     constructor(
         readonly config: any,
-        readonly page?: number
+        readonly nextLink?: string
     ) {
         super(
-            page
+            nextLink
                 ? 'More ...'
                 : 'Outlook',
             
-            config.collapsed === 'true' || page
+            config.collapsed === 'true' || nextLink
                 ? TreeItemCollapsibleState.Collapsed
                 : TreeItemCollapsibleState.Expanded
         );
 
-        if (!page) {
+        if (!nextLink) {
 
             this.description = config.username;
             this.contextValue = "can-reload";
@@ -73,15 +73,20 @@ export class OutlookItem extends CollapsibleTreeItem {
     async internalGetChildren(): Promise<TreeItem[]> {
 
         try {
-
-            // const page = this.page ? this.page : 1;
-            // const owner = encodeURIComponent(this.config.owner);
-            // const repository = encodeURIComponent(this.config.repository);
-            // const url = `${this.config.base_url}/api/v1/repos/${owner}/${repository}/issues?state=open&page=${page}&limit=${OutlookItem.ISSUES_PER_PAGE}`;
-
-            const messages: Message[] = (await graphClient.api('/me/mailFolders/inbox/messages').top(10).get()).value;
-
-            const todoItems: TodoTreeItem[] = [];
+            
+            const messagesResponse: any = this.nextLink
+                
+                ? await graphClient
+                    .api(this.nextLink)
+                    .get()
+                
+                : await graphClient
+                    .api('/me/mailFolders/inbox/messages')
+                    .top(OutlookItem.MESSAGES_PER_PAGE)
+                    .get();
+            
+            const messages: Message[] = messagesResponse.value;
+            const messageItems: TreeItem[] = [];
 
             for (const message of messages) {
                 
@@ -124,6 +129,7 @@ export class OutlookItem extends CollapsibleTreeItem {
                 let attachments: FileAttachment[] | undefined = undefined;
                 let todoItem: TreeItem;
 
+                const label = `${from}`;
                 const subject = message.subject ?? 'unknown subject';
 
                 if (message.id && message.hasAttachments) {
@@ -133,55 +139,65 @@ export class OutlookItem extends CollapsibleTreeItem {
                         .get()).value;
 
                     todoItem = new OutlookMailWithAttachmentItem(
-                        subject,
+                        label,
                         message.id,
                         attachments ?? []);
+                    
+                    todoItem.description = subject;
+
                 }
 
                 else {
-                    todoItem = new TodoTreeItem(
-                        `${from}`,
-                        subject,
-                        message.webLink ? Uri.parse(message.webLink) : undefined,
-                        undefined,
-                        tooltip,
-                        message.hasAttachments ? 'files' : 'mail',
-                        undefined,
-                        undefined);
+                    todoItem = new TreeItem(label);
+
+                    todoItem.description = subject;
+                    todoItem.tooltip = tooltip;
+                    todoItem.iconPath = new ThemeIcon('mail');
+                    
+                    if (message.webLink) {
+                        this.command = {
+                            title: "Open",
+                            command: "vscode.open",
+                            arguments: [message.webLink]
+                        };
+                    }
                 }
 
-                todoItems.push(todoItem);
+                messageItems.push(todoItem);
+            }
+
+            const nextLink: string = messagesResponse["@odata.nextLink"];
+
+            if (nextLink) {
+                messageItems.push(new OutlookItem(this.config, nextLink));
             }
                 
-            return todoItems;
+            return messageItems;
         }
         
         catch (error) {
+
+            const item = new TreeItem("Unable to retrieve Outlook messages");
+
+            item.tooltip = (<any>error).toString();
+            item.iconPath = new ThemeIcon('error');
+
             return [
-                new TodoTreeItem(
-                    "Unable to retrieve Outlook messages",
-                    undefined,
-                    undefined,
-                    undefined,
-                    (<any>error).toString(),
-                    'error',
-                    undefined,
-                    undefined
-                )
+                item
             ];
         }
     }
 }
 
-export class OutlookMailWithAttachmentItem extends CollapsibleTreeItem {
+export class OutlookMailWithAttachmentItem extends ChildrenCachingTreeItem {
 
     constructor(
-        subject: string,
+        label: string,
         readonly messageId: string,
         readonly attachments: FileAttachment[],
     ) {
         super(
-            subject,
+            label,
             TreeItemCollapsibleState.Collapsed
         );
     }
@@ -222,7 +238,6 @@ export class OutlookMailWithAttachmentItem extends CollapsibleTreeItem {
                                 const downloadFilePath = path.join(downloadDir, attachment.name);
 
                                 // check if file exists here!
-                                // find better "attachment icon"
                                 // offer button to open file oder to open folder
                                 // maybe download to "Downloads folder"
 
@@ -245,7 +260,10 @@ export class OutlookMailWithAttachmentItem extends CollapsibleTreeItem {
                 attachment.name ?? `unknown attachment name`
             );
         
-            item.iconPath = new ThemeIcon('files');
+            item.iconPath = {
+                light: path.join(__filename, '..', '..', '..', '..', 'resources', 'light', 'attachment.svg'),
+                dark: path.join(__filename, '..', '..', '..', '..', 'resources', 'dark', 'attachment.svg')
+            };
 
             item.command = {
                 title: 'Run the tree item custom action',

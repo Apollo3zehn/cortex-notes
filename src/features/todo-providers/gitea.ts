@@ -1,8 +1,8 @@
 import path from "path";
-import { TreeItemCollapsibleState, TreeItem, MarkdownString } from "vscode";
-import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
+import { TreeItemCollapsibleState, TreeItem, MarkdownString, ThemeIcon } from "vscode";
+import { ChildrenCachingTreeItem } from "../todoTypes";
 
-export class GiteaItem extends CollapsibleTreeItem {
+export class GiteaItem extends ChildrenCachingTreeItem {
 
     static readonly ISSUES_PER_PAGE: number = 30;
 
@@ -48,7 +48,7 @@ export class GiteaItem extends CollapsibleTreeItem {
 
         const issues = (await response.json()) as any[];
         
-        const todoItems: TreeItem[] = issues
+        const issueItems: TreeItem[] = issues
             .map(issue => {
 
                 const labels = (<string[]>issue.labels);
@@ -57,19 +57,25 @@ export class GiteaItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.join(' | ');
               
-                return new TodoTreeItem(
-                    issue.title,
-                    `#${issue.number} ${description === '' ? '' : "| " + description}`,
-                    issue.html_url,
-                    undefined,
-                    new MarkdownString(issue.body),
-                    issue.pull_request ? 'git-pull-request' : 'circle-outline');
+                const item = new TreeItem(issue.title);
+
+                item.description = `#${issue.number} ${description === '' ? '' : "| " + description}`;
+                item.tooltip = new MarkdownString(issue.body);
+                item.iconPath = new ThemeIcon(issue.pull_request ? 'git-pull-request' : 'circle-outline');
+
+                item.command = {
+                    title: "Open",
+                    command: "vscode.open",
+                    arguments: issue.html_url ? [issue.html_url] : undefined
+                };
+
+                return item;
             });
         
         if (issues.length === GiteaItem.ISSUES_PER_PAGE) {
-            todoItems.push(new GiteaItem(this.config, page + 1));
+            issueItems.push(new GiteaItem(this.config, page + 1));
         }
         
-        return todoItems;
+        return issueItems;
     }
 }

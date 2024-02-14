@@ -1,8 +1,8 @@
 import { TreeItem, TreeItemCollapsibleState, ThemeIcon, MarkdownString, Uri, workspace } from "vscode";
 import { Page, TodoItem, TodoState, Block, Priority } from "../../core";
-import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
+import { ChildrenCachingTreeItem, ContextTreeItem } from "../todoTypes";
 
-class TodoItemsContainer extends CollapsibleTreeItem {
+class TodoItemsContainer extends ChildrenCachingTreeItem {
 
     constructor(
         title: string,
@@ -20,7 +20,7 @@ class TodoItemsContainer extends CollapsibleTreeItem {
     }
 }
 
-export class TodoItems extends CollapsibleTreeItem {
+export class TodoItems extends ChildrenCachingTreeItem {
 
     constructor(
         config: any,
@@ -100,35 +100,29 @@ export class TodoItems extends CollapsibleTreeItem {
         }
 
         if (openTodoItems.length === 0 && doneTodoItems.length === 0) {
+
+            const item = new TreeItem('');
+            item.description = 'There are no TODO items for this page';
+
             return [
-                new TodoTreeItem(
-                    '',
-                    'There are no TODO items for this page',
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined)
+                item
             ];
         }
 
         if (openTodoItems.length === 0) {
-            openTodoItems.push(new TodoTreeItem(
-                '',
-                'There are no TODO items for this page',
-                undefined,
-                undefined,
-                undefined,
-                undefined));
+            
+            const item = new TreeItem('');
+            item.description = 'There are no TODO items for this page';
+
+            openTodoItems.push(item);
         }
 
         if (doneTodoItems.length === 0) {
-            doneTodoItems.push(new TodoTreeItem(
-                '',
-                'There are no DONE items for this page',
-                undefined,
-                undefined,
-                undefined,
-                undefined));
+            
+            const item = new TreeItem('');
+            item.description = 'There are no DONE items for this page';
+
+            doneTodoItems.push(item);
         }
 
         return [
@@ -174,18 +168,20 @@ export class TodoItems extends CollapsibleTreeItem {
             ? Priority[rawTodoItem.priority].toString()
             : '0';
         
-        const todoItem = new TodoTreeItem(
-            label,
-            '',
-            pageUri,
-            decorationUri,
-            new MarkdownString(tooltip),
-            undefined,
-            context,
-            [page.uri!, rawTodoItem]);
-        
+        const cortexContext = [page.uri!, rawTodoItem];
+        const todoItem = new ContextTreeItem(label, cortexContext);
+
+        todoItem.resourceUri = decorationUri;
+        todoItem.tooltip = new MarkdownString(tooltip);
+        todoItem.contextValue = context;
         todoItem.iconPath = new ThemeIcon(iconId);
         
+        this.command = {
+            title: "Open",
+            command: "vscode.open",
+            arguments: [pageUri]
+        };
+
         return todoItem;
     }
 

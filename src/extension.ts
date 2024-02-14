@@ -13,7 +13,7 @@ export async function activate(context: ExtensionContext) {
 
     logger.appendLine('Extension activated');
 
-    if (workspace.workspaceFolders === undefined) {
+    if (!workspace.workspaceFolders) {
         logger.appendLine('No workspace open, exiting');
         return;
     }

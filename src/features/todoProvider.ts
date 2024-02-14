@@ -8,7 +8,7 @@ import { GitHubItem } from "./todo-providers/github";
 import { GitLabIssuesItem, GitLabMergeRequestsItem } from "./todo-providers/gitlab";
 import { OutlookItem } from "./todo-providers/mail.outlook";
 import { TodoItems } from "./todo-providers/todo";
-import { CollapsibleTreeItem } from "./todoTypes";
+import { ChildrenCachingTreeItem } from "./todoTypes";
 
 const _cache = new Map<Page, TreeItem[]>();
 const _onDidChangeEmitter = new EventEmitter<void | TreeItem | TreeItem[] | null | undefined>();
@@ -31,7 +31,7 @@ export async function activate(
     context.subscriptions.push(
 
         commands.registerCommand(reloadTreeCommand, item => {
-            if (item instanceof CollapsibleTreeItem) {
+            if (item instanceof ChildrenCachingTreeItem) {
                 item.resetChildren();
                 _onDidChangeEmitter.fire();
             }
@@ -84,7 +84,7 @@ export async function activate(
 
                 for (const todoItems of todoItemsSet) {
                     /* alternative for casting: https://stackoverflow.com/a/54318054 */
-                    (<CollapsibleTreeItem>todoItems).resetChildren();
+                    (<ChildrenCachingTreeItem>todoItems).resetChildren();
                 }
 
                 return;
@@ -132,7 +132,7 @@ class TodoTreeDataProvider implements TreeDataProvider<TreeItem> {
 
         if (element) {
 
-            if (element instanceof CollapsibleTreeItem) {
+            if (element instanceof ChildrenCachingTreeItem) {
                 return element.getChildren();
             }
 

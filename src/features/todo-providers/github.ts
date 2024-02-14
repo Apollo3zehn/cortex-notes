@@ -3,11 +3,11 @@ import { OctokitResponse } from "@octokit/types";
 import { Octokit } from "octokit";
 import path from "path";
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
-import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
+import { ChildrenCachingTreeItem } from "../todoTypes";
 
 type IssueItem = components["schemas"]["issue"];
 
-export class GitHubItem extends CollapsibleTreeItem {
+export class GitHubItem extends ChildrenCachingTreeItem {
 
     static readonly ISSUES_PER_PAGE: number = 30;
 
@@ -78,7 +78,7 @@ export class GitHubItem extends CollapsibleTreeItem {
 
         const issues = iteratorResult.value.data;
 
-        const todoItems: TreeItem[] = issues
+        const issueItems: TreeItem[] = issues
             .map(issue => {
 
                 const description = issue.labels.length === 0
@@ -95,19 +95,27 @@ export class GitHubItem extends CollapsibleTreeItem {
                         
                     }).join(' | ');
 
-                return new TodoTreeItem(
-                    issue.title,
-                    `#${issue.number} ${description === '' ? '' : "| " + description}`,
-                    Uri.parse(issue.html_url),
-                    undefined,
-                    new MarkdownString(issue.body ?? undefined),
-                    issue.pull_request ? 'git-pull-request' : 'circle-outline');
+                const item = new TreeItem(issue.title);
+                    
+                item.description = `#${issue.number} ${description === '' ? '' : "| " + description}`;
+                item.tooltip = new MarkdownString(issue.body ?? undefined);
+                item.iconPath = issue.pull_request ? 'git-pull-request' : 'circle-outline';
+        
+                if (issue.html_url) {
+                    this.command = {
+                        title: "Open",
+                        command: "vscode.open",
+                        arguments: [issue.html_url]
+                    };
+                }
+
+                return item;
             });
         
         if (issues.length === GitHubItem.ISSUES_PER_PAGE) {
-            todoItems.push(new GitHubItem(this.config, this.issuesIterator));
+            issueItems.push(new GitHubItem(this.config, this.issuesIterator));
         }
 
-        return todoItems;
+        return issueItems;
     }
 }

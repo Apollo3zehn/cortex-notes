@@ -1,8 +1,8 @@
 import path from "path";
-import { TreeItemCollapsibleState, TreeItem, MarkdownString } from "vscode";
-import { CollapsibleTreeItem, TodoTreeItem } from "../todoTypes";
+import { TreeItemCollapsibleState, TreeItem, MarkdownString, ThemeIcon } from "vscode";
+import { ChildrenCachingTreeItem } from "../todoTypes";
 
-export class GitLabIssuesItem extends CollapsibleTreeItem {
+export class GitLabIssuesItem extends ChildrenCachingTreeItem {
 
     static readonly ISSUES_PER_PAGE: number = 30;
 
@@ -46,7 +46,7 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
 
         const issues = (await response.json()) as any[];
         
-        const todoItems: TreeItem[] = issues
+        const issueItems: TreeItem[] = issues
             .map(issue => {
 
                 const labels = (<string[]>issue.labels);
@@ -55,24 +55,32 @@ export class GitLabIssuesItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.map(label => label).join(' | ');
               
-                return new TodoTreeItem(
-                    issue.title,
-                    `#${issue.iid} ${description === '' ? '' : "| " + description}`,
-                    issue.web_url,
-                    undefined,
-                    new MarkdownString(issue.description),
-                    'circle-outline');
+                const item = new TreeItem(issue.title);
+
+                item.description = `#${issue.iid} ${description === '' ? '' : "| " + description}`;
+                item.tooltip = new MarkdownString(issue.description);
+                item.iconPath = new ThemeIcon('circle-outline');
+        
+                if (issue.web_url) {
+                    this.command = {
+                        title: "Open",
+                        command: "vscode.open",
+                        arguments: [issue.web_url]
+                    };
+                }
+        
+                return item;
             });
         
         if (issues.length === GitLabIssuesItem.ISSUES_PER_PAGE) {
-            todoItems.push(new GitLabIssuesItem(this.config, page + 1));
+            issueItems.push(new GitLabIssuesItem(this.config, page + 1));
         }
         
-        return todoItems;
+        return issueItems;
     }
 }
 
-export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
+export class GitLabMergeRequestsItem extends ChildrenCachingTreeItem {
 
     static readonly MERGE_REQUESTS_PER_PAGE: number = 30;
 
@@ -125,13 +133,21 @@ export class GitLabMergeRequestsItem extends CollapsibleTreeItem {
                     ? ''
                     : labels.map(label => label).join(' | ');
               
-                return new TodoTreeItem(
-                    issue.title,
-                    `!${issue.iid} ${description === '' ? '' : "| " + description}`,
-                    issue.web_url,
-                    undefined,
-                    new MarkdownString(issue.description),
-                    'git-pull-request');
+                const item = new TreeItem(issue.title);
+
+                item.description = `!${issue.iid} ${description === '' ? '' : "| " + description}`;
+                item.tooltip = new MarkdownString(issue.description);
+                item.iconPath = new ThemeIcon('git-pull-request');
+                
+                if (issue.web_url) {
+                    this.command = {
+                        title: "Open",
+                        command: "vscode.open",
+                        arguments: [issue.web_url]
+                    };
+                }
+        
+                return item;
             });
         
         if (mergeRequests.length === GitLabMergeRequestsItem.MERGE_REQUESTS_PER_PAGE) {
