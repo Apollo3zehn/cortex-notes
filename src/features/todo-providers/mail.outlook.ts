@@ -1,4 +1,4 @@
-import { InteractiveBrowserCredential, useIdentityPlugin } from "@azure/identity";
+import { AuthenticationRecord, InteractiveBrowserCredential, useIdentityPlugin } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
 import { FileAttachment, Message } from "@microsoft/microsoft-graph-types";
@@ -16,37 +16,16 @@ import { ChildrenCachingTreeItem } from "../todoTypes";
 import { cachePersistencePlugin } from "@azure/identity-cache-persistence";
 useIdentityPlugin(cachePersistencePlugin);
 
-// https://learn.microsoft.com/en-us/graph/sdks/choose-authentication-providers?tabs=typescript#device-code-provider
-const credential = new InteractiveBrowserCredential({
-    tenantId: 'common',
-    clientId: 'f470bc86-5748-46ef-8d92-450964420fb9',
-    tokenCachePersistenceOptions: {
-        enabled: true
-    },
-});
-
-// const b = async () => {
-//     const account = await credential.authenticate('Mail.ReadWrite');
-//     const c = 2;
-// };
-
-// b();
-
-const authProvider = new TokenCredentialAuthenticationProvider(credential, {
-    scopes: [
-        'Mail.ReadWrite'
-    ],
-});
-    
-const graphClient = Client.initWithMiddleware({ authProvider: authProvider });
-
 export class OutlookItem extends ChildrenCachingTreeItem {
 
-    static readonly MESSAGES_PER_PAGE: number = 30;
+    static readonly MESSAGES_PER_PAGE: number = 15;
+
+    private graphClient: Client | undefined = undefined;
 
     constructor(
         readonly config: any,
-        readonly nextLink?: string
+        readonly nextLink?: string,
+        graphClient?: Client
     ) {
         super(
             nextLink
@@ -68,22 +47,36 @@ export class OutlookItem extends ChildrenCachingTreeItem {
                 dark: path.join(__filename, '..', '..', '..', '..', 'resources', 'dark', 'microsoftoutlook.svg')
             };
         }
+
+        this.graphClient = graphClient;
     }
 
     async internalGetChildren(): Promise<TreeItem[]> {
+
+        if (!this.graphClient) {
+            this.graphClient = await this.getGraphClientAsync();
+        }
 
         try {
             
             const messagesResponse: any = this.nextLink
                 
-                ? await graphClient
+                ? await this.graphClient
                     .api(this.nextLink)
                     .get()
                 
-                : await graphClient
-                    .api('/me/mailFolders/inbox/messages')
-                    .top(OutlookItem.MESSAGES_PER_PAGE)
-                    .get();
+                : this.config.filter
+                    
+                    ? await this.graphClient
+                        .api('/me/mailFolders/inbox/messages')
+                        .filter(this.config.filter)
+                        .top(OutlookItem.MESSAGES_PER_PAGE)
+                        .get()
+                    
+                    : await this.graphClient
+                        .api('/me/mailFolders/inbox/messages')
+                        .top(OutlookItem.MESSAGES_PER_PAGE)
+                        .get();
             
             const messages: Message[] = messagesResponse.value;
             const messageItems: TreeItem[] = [];
@@ -134,14 +127,15 @@ export class OutlookItem extends ChildrenCachingTreeItem {
 
                 if (message.id && message.hasAttachments) {
 
-                    attachments = (await graphClient
+                    attachments = (await this.graphClient
                         .api(`/me/messages/${message.id}/attachments?$select=id,name`)
                         .get()).value;
 
                     todoItem = new OutlookMailWithAttachmentItem(
                         label,
                         message.id,
-                        attachments ?? []);
+                        attachments ?? [],
+                        this.graphClient);
                     
                     todoItem.description = subject;
 
@@ -187,14 +181,95 @@ export class OutlookItem extends ChildrenCachingTreeItem {
             ];
         }
     }
+
+    private async getGraphClientAsync(): Promise<Client> {
+
+        // https://github.com/Azure/azure-sdk-for-python/issues/23721#issuecomment-1083539872
+        // https://learn.microsoft.com/en-us/graph/sdks/choose-authentication-providers?tabs=typescript#device-code-provider
+
+        /* Related issue: https://github.com/Azure/azure-sdk-for-js/issues/28896
+         * 
+         * The user is required to log into the Outlook account and do the confirmation twice
+         * because due to the following:
+         * - We want to be able to log into multiple Outlook accounts (e.g. work and private)
+         * - We want Azure Identity to cache the tokens that belong to the accounts
+         * - Azure Identity needs a user provided AuthenticationRecord to distinguish between
+         *   multiple cached tokens
+         * - To get that AuthenticationRecord once, we call credential.authenticate(...);
+         * - If there are already tokens in the cache, Azure Identity will use these instead of
+         *   reauthenticating.
+         * - In that case we get AuthenticationRecord for the wrong (cached) user account.
+         * - So we disable the token cache when there is no AuthenticationRecord available and
+         *   we need one. The AuthenticationRecord is then serialized to disk.
+         * - Disabling the token cache in this case lets us authenticate to multiple user accounts
+         *   and we get correct AuthenticationRecord per account but the disadvantage is that
+         *   the next time the user needs to authenticate again to populate the token cache.
+         */
+
+        const authenticationRecordFolderPath = path.join(os.homedir(), ".IdentityService");
+        const authenticationRecordFilePath = path.join(authenticationRecordFolderPath, `cortex_notes@${this.config.login_hint}.json`);
+
+        let authenticationRecord: AuthenticationRecord | undefined;
+
+        try {
+
+            const jsonString = await fs.readFile(authenticationRecordFilePath, {
+                encoding: 'utf8'
+            });
+
+            authenticationRecord = JSON.parse(jsonString);
+        } catch (err) {
+            // ignore
+        }
+
+        const scopes = ['Mail.ReadWrite', 'Calendars.Read'];
+
+        const credential = new InteractiveBrowserCredential({
+            tenantId: 'common',
+            clientId: 'f470bc86-5748-46ef-8d92-450964420fb9',
+            tokenCachePersistenceOptions: {
+                /* The condition is required because of the 
+                 * multi-account problem described above. */
+                enabled: authenticationRecord !== undefined,
+            },
+            loginHint: this.config.login_hint,
+            authenticationRecord: authenticationRecord
+        });
+
+        if (!authenticationRecord) {
+            authenticationRecord = await credential.authenticate(scopes);
+
+            try {
+
+                await fs.mkdir(authenticationRecordFolderPath, {
+                    recursive: true
+                });
+
+                let jsonString = JSON.stringify(authenticationRecord);
+
+                await fs.writeFile(authenticationRecordFilePath, jsonString);
+            } catch (error) {
+                // ignore
+            }
+        }
+
+        const authProvider = new TokenCredentialAuthenticationProvider(credential, {
+            scopes: scopes,
+        });
+            
+        const graphClient = Client.initWithMiddleware({ authProvider: authProvider });
+
+        return graphClient;
+    }
 }
 
-export class OutlookMailWithAttachmentItem extends ChildrenCachingTreeItem {
+class OutlookMailWithAttachmentItem extends ChildrenCachingTreeItem {
 
     constructor(
         label: string,
         readonly messageId: string,
         readonly attachments: FileAttachment[],
+        readonly graphClient: Client
     ) {
         super(
             label,
@@ -220,7 +295,7 @@ export class OutlookMailWithAttachmentItem extends ChildrenCachingTreeItem {
                                 message: `Downloading ${attachment.name} ...`
                             });
 
-                            const attachmentWithData: FileAttachment = await graphClient
+                            const attachmentWithData: FileAttachment = await this.graphClient
                                 .api(`/me/messages/${this.messageId}/attachments/${attachment.id}`)
                                 .get();
                             

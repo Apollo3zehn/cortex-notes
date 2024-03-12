@@ -2,14 +2,14 @@ import { components } from "@octokit/openapi-types";
 import { OctokitResponse } from "@octokit/types";
 import { Octokit } from "octokit";
 import path from "path";
-import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from "vscode";
 import { ChildrenCachingTreeItem } from "../todoTypes";
 
 type IssueItem = components["schemas"]["issue"];
 
 export class GitHubItem extends ChildrenCachingTreeItem {
 
-    static readonly ISSUES_PER_PAGE: number = 30;
+    static readonly ISSUES_PER_PAGE: number = 15;
 
     constructor(
         config: any
@@ -99,7 +99,7 @@ export class GitHubItem extends ChildrenCachingTreeItem {
                     
                 item.description = `#${issue.number} ${description === '' ? '' : "| " + description}`;
                 item.tooltip = new MarkdownString(issue.body ?? undefined);
-                item.iconPath = issue.pull_request ? 'git-pull-request' : 'circle-outline';
+                item.iconPath = new ThemeIcon(issue.pull_request ? 'git-pull-request' : 'circle-outline');
         
                 if (issue.html_url) {
                     this.command = {

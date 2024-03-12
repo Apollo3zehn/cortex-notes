@@ -4,7 +4,7 @@ import { ChildrenCachingTreeItem } from "../todoTypes";
 
 export class GiteaItem extends ChildrenCachingTreeItem {
 
-    static readonly ISSUES_PER_PAGE: number = 30;
+    static readonly ISSUES_PER_PAGE: number = 15;
 
     constructor(
         readonly config: any,
