@@ -12,7 +12,8 @@ import { ChildrenCachingTreeItem } from "../todoTypes";
 // To solve NODE_MODULE_VERSION mismatch errors (caused by a dependency of "@azure/identity-cache-persistence"):
 // 1. Get Electron version via vscode -> Help -> About -> Electron
 // 2. pnpm install --save-dev electron@<version>
-// 3. pnpm install --save-dev electron-rebuild
+// 3. pnpm install --save-dev @electron/rebuild
+// 4. node_modules/.bin/electron-rebuild
 import { cachePersistencePlugin } from "@azure/identity-cache-persistence";
 useIdentityPlugin(cachePersistencePlugin);
 
