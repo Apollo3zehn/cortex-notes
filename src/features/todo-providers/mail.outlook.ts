@@ -11,7 +11,7 @@ import { ChildrenCachingTreeItem } from "../todoTypes";
 
 // To solve NODE_MODULE_VERSION mismatch errors (caused by a dependency of "@azure/identity-cache-persistence"):
 // 1. Get Electron version via vscode -> Help -> About -> Electron
-// 2. pnpm install --save-dev electron@<version>
+// 2. pnpm install --save-dev electron@<version> (remove package.json entry before doing so!)
 // 3. pnpm install --save-dev @electron/rebuild
 // 4. node_modules/.bin/electron-rebuild
 import { cachePersistencePlugin } from "@azure/identity-cache-persistence";
@@ -185,28 +185,6 @@ export class OutlookItem extends ChildrenCachingTreeItem {
 
     private async getGraphClientAsync(): Promise<Client> {
 
-        // https://github.com/Azure/azure-sdk-for-python/issues/23721#issuecomment-1083539872
-        // https://learn.microsoft.com/en-us/graph/sdks/choose-authentication-providers?tabs=typescript#device-code-provider
-
-        /* Related issue: https://github.com/Azure/azure-sdk-for-js/issues/28896
-         * 
-         * The user is required to log into the Outlook account and do the confirmation twice
-         * because due to the following:
-         * - We want to be able to log into multiple Outlook accounts (e.g. work and private)
-         * - We want Azure Identity to cache the tokens that belong to the accounts
-         * - Azure Identity needs a user provided AuthenticationRecord to distinguish between
-         *   multiple cached tokens
-         * - To get that AuthenticationRecord once, we call credential.authenticate(...);
-         * - If there are already tokens in the cache, Azure Identity will use these instead of
-         *   reauthenticating.
-         * - In that case we get AuthenticationRecord for the wrong (cached) user account.
-         * - So we disable the token cache when there is no AuthenticationRecord available and
-         *   we need one. The AuthenticationRecord is then serialized to disk.
-         * - Disabling the token cache in this case lets us authenticate to multiple user accounts
-         *   and we get correct AuthenticationRecord per account but the disadvantage is that
-         *   the next time the user needs to authenticate again to populate the token cache.
-         */
-
         const authenticationRecordFolderPath = path.join(os.homedir(), ".IdentityService");
         const authenticationRecordFilePath = path.join(authenticationRecordFolderPath, `cortex_notes@${this.config.login_hint}.json`);
 
@@ -227,11 +205,9 @@ export class OutlookItem extends ChildrenCachingTreeItem {
 
         const credential = new InteractiveBrowserCredential({
             tenantId: 'common',
-            clientId: 'f470bc86-5748-46ef-8d92-450964420fb9',
+            clientId: 'efa06699-ad6c-4dcd-b315-3e01bb7fd854',
             tokenCachePersistenceOptions: {
-                /* The condition is required because of the 
-                 * multi-account problem described above. */
-                enabled: authenticationRecord !== undefined,
+                enabled: true,
             },
             loginHint: this.config.login_hint,
             authenticationRecord: authenticationRecord
